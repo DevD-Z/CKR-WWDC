@@ -1332,7 +1332,7 @@
     voucherBtn.disabled = true;
     setStatus(voucherStatus, "กำลังแลกซอง...", "load");
     try {
-      const data = await api("POST", "/api/farm/redeem-voucher", { voucher_url: url });
+      const data = await api("/api/farm/redeem-voucher", { method: "POST", body: { voucher_url: url } });
       setStatus(voucherStatus, `✅ แลกสำเร็จ! +${data.tokens_added} Token (${data.amount_baht} บาท)`, "ok");
       voucherUrl.value = "";
       if (typeof data.token_balance === "number") {
