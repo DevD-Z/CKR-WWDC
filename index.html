@@ -233,7 +233,11 @@
               </div>
               <p id="pp-status" class="status" role="status"></p>
               <div id="pp-verify-area" class="hidden" hidden>
-                <button class="btn btn-candy" id="pp-verify-btn" style="width:100%;margin-top:8px">
+                <label class="field">
+                  <span>QR Data from slip <span style="color:#64748b;font-weight:400">(optional — paste from bank app)</span></span>
+                  <input type="text" id="pp-slip-data" placeholder="e.g. 000201010211... or leave empty" />
+                </label>
+                <button class="btn btn-candy" id="pp-verify-btn" style="width:100%;margin-top:4px">
                   I've Paid — Verify
                 </button>
               </div>

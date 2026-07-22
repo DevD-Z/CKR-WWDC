@@ -775,69 +775,48 @@ async def farm_redeem_voucher(
 # ---------------------------------------------------------------------------
 # PromptPay / SlipOK payment
 # ---------------------------------------------------------------------------
-SLIPOK_BASE = "https://api.slipok.com/api/line/apikey/68170"
+SLIPOK_BRANCH_ID = "68170"
 SLIPOK_API_KEY = os.environ.get("SLIPOK_API_KEY", "SLIPOKA4QMJ7R")
+SLIPOK_BASE = f"https://api.slipok.com/api/line/apikey/{SLIPOK_BRANCH_ID}"
 PROMPTPAY_NUMBER = os.environ.get("PROMPTPAY_NUMBER", "0000000000")
 POINTS_PER_BAHT_PROMPTPAY = int(os.environ.get("POINTS_PER_BAHT_PROMPTPAY", "1"))
-CALLBACK_BASE = os.environ.get("CALLBACK_BASE", "https://ckr-wwdc-x0pe.onrender.com")
 
 
 class CreatePaymentBody(BaseModel):
     amount: int = Field(ge=15, le=10000)
 
 
-class PaymentCallbackBody(BaseModel):
-    transactionId: str = ""
-    ref: str = ""
-    amount: str = "0"
-    status: str = "completed"
+class VerifySlipBody(BaseModel):
+    ref: str = Field(min_length=1, max_length=64)
+    data: str = Field(min_length=10, max_length=2048)
 
 
-SLIPOK_SESSION: httpx.AsyncClient | None = None
+SLIPOK_CLIENT: httpx.AsyncClient | None = None
 
 
 def _slipok_headers() -> dict[str, str]:
     return {
-        "apikey": SLIPOK_API_KEY,
+        "x-authorization": SLIPOK_API_KEY,
         "Content-Type": "application/json",
     }
 
 
-async def _slipok_client() -> httpx.AsyncClient:
-    global SLIPOK_SESSION
-    if SLIPOK_SESSION is None:
-        SLIPOK_SESSION = httpx.AsyncClient(base_url=SLIPOK_BASE, timeout=30.0)
-    return SLIPOK_SESSION
+async def _slipok_session() -> httpx.AsyncClient:
+    global SLIPOK_CLIENT
+    if SLIPOK_CLIENT is None:
+        SLIPOK_CLIENT = httpx.AsyncClient(timeout=30.0)
+    return SLIPOK_CLIENT
 
 
 @app.post("/api/farm/payment/create")
 async def farm_payment_create(
     body: CreatePaymentBody,
-    request: Request,
     user: dict[str, Any] = Depends(verify_user),
 ):
     uid = user["id"]
     ts = int(time.time())
     ref = f"PP{uid[:8]}{ts % 1000000}"
-
-    try:
-        client = await _slipok_client()
-        sl_res = await client.post(
-            "/qrcode",
-            headers=_slipok_headers(),
-            json={
-                "amount": body.amount,
-                "ref": ref,
-            },
-        )
-        sl_data = sl_res.json()
-        print(f"[slipok] qrcode response status={sl_res.status_code} body={sl_data}")
-        if sl_res.status_code != 200 or not sl_data.get("data", {}).get("qrImage"):
-            raise HTTPException(status_code=502, detail=f"SlipOK error: {sl_data}")
-        qr_image = sl_data["data"]["qrImage"]
-        sl_txn_id = sl_data["data"].get("transactionId", "")
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=502, detail=f"SlipOK connection failed: {e}")
+    qr_url = f"https://promptpay.io/{PROMPTPAY_NUMBER}/{body.amount}?ref={ref}"
 
     svc = _service_headers()
     points_per_baht = POINTS_PER_BAHT_PROMPTPAY
@@ -862,7 +841,6 @@ async def farm_payment_create(
                     "amount_baht": body.amount,
                     "tokens": tokens,
                     "ref": ref,
-                    "slipok_txn_id": sl_txn_id,
                     "status": "pending",
                 },
             )
@@ -870,66 +848,97 @@ async def farm_payment_create(
     return {
         "ok": True,
         "ref": ref,
-        "qr_image": qr_image,
+        "qr_url": qr_url,
         "amount_baht": body.amount,
         "tokens": body.amount * points_per_baht,
+        "promptpay_number": PROMPTPAY_NUMBER,
     }
 
 
-@app.post("/api/farm/payment/callback")
-async def farm_payment_callback(
-    body: PaymentCallbackBody,
+@app.post("/api/farm/payment/verify")
+async def farm_payment_verify(
+    body: VerifySlipBody,
+    user: dict[str, Any] = Depends(verify_user),
 ):
-    if not body.ref:
-        raise HTTPException(status_code=400, detail="missing ref")
+    """Verify a payment slip via SlipOK API."""
     if not _has_service_role():
-        return {"ok": True, "note": "service_role_not_configured"}
+        raise HTTPException(status_code=503, detail="service_role_not_configured")
 
     svc = _service_headers()
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        if body.transactionId:
-            dup = await client.get(
-                f"{SUPABASE_URL}/rest/v1/pending_payments",
-                params={"slipok_txn_id": f"eq.{body.transactionId}", "status": "eq.confirmed", "select": "id", "limit": "1"},
-                headers={**svc, "Accept": "application/json"},
-            )
-            if dup.status_code == 200 and dup.json():
-                print(f"[callback] duplicate slipok_txn_id={body.transactionId} rejected")
-                return {"ok": False, "detail": "duplicate_transaction"}
 
-        q = await client.get(
+    # Look up the pending payment
+    async with httpx.AsyncClient(timeout=20.0) as c:
+        q = await c.get(
             f"{SUPABASE_URL}/rest/v1/pending_payments",
-            params={"ref": f"eq.{body.ref}", "select": "*", "limit": "1"},
+            params={"ref": f"eq.{body.ref}", "user_id": f"eq.{user['id']}", "select": "*", "limit": "1"},
             headers={**svc, "Accept": "application/json"},
         )
         if q.status_code != 200 or not q.json():
-            print(f"[callback] payment not found for ref={body.ref}")
-            return {"ok": False, "detail": "payment_not_found"}
+            raise HTTPException(status_code=404, detail="payment_not_found")
         row = q.json()[0]
         if row["status"] != "pending":
-            return {"ok": True, "status": row["status"]}
+            return {"ok": True, "status": row["status"], "tokens": row["tokens"]}
 
-        await client.patch(
+    # Verify via SlipOK
+    try:
+        client = await _slipok_session()
+        sl_res = await client.post(
+            SLIPOK_BASE,
+            headers=_slipok_headers(),
+            json={
+                "data": body.data,
+                "log": True,
+                "amount": row["amount_baht"],
+            },
+        )
+        sl_data = sl_res.json()
+        print(f"[slipok] verify response status={sl_res.status_code} body={sl_data}")
+        if not sl_data.get("success") or not sl_data.get("data", {}).get("success"):
+            msg = sl_data.get("message", "verification_failed")
+            code = sl_data.get("code", "")
+            print(f"[slipok] verify failed: code={code} msg={msg}")
+            if code == "1012":
+                return {"ok": False, "detail": "duplicate_slip"}
+            raise HTTPException(status_code=400, detail=f"SlipOK: {msg}")
+        txn_id = sl_data["data"].get("transRef", "")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"SlipOK connection failed: {e}")
+
+    # Check duplicate txn_id
+    async with httpx.AsyncClient(timeout=20.0) as c:
+        dup = await c.get(
+            f"{SUPABASE_URL}/rest/v1/pending_payments",
+            params={"slipok_txn_id": f"eq.{txn_id}", "status": "eq.confirmed", "select": "id", "limit": "1"},
+            headers={**svc, "Accept": "application/json"},
+        )
+        if dup.status_code == 200 and dup.json():
+            return {"ok": False, "detail": "duplicate_slip", "transRef": txn_id}
+
+        # Credit tokens
+        await c.patch(
             f"{SUPABASE_URL}/rest/v1/pending_payments?id=eq.{row['id']}",
             headers=svc,
             json={
                 "status": "confirmed",
-                "slipok_txn_id": body.transactionId,
+                "slipok_txn_id": txn_id,
                 "confirmed_at": datetime.now(timezone.utc).isoformat(),
             },
         )
-        credit = await client.post(
+        credit = await c.post(
             f"{SUPABASE_URL}/rest/v1/rpc/admin_credit_tokens",
             headers=svc,
             json={
-                "p_user_id": row["user_id"],
+                "p_user_id": user["id"],
                 "p_amount": row["tokens"],
                 "p_reason": f"promptpay_{body.ref}",
             },
         )
-        print(f"[callback] credited {row['tokens']} tokens to {row['user_id']} for ref={body.ref} (slipok={body.transactionId})")
+        if credit.status_code != 200:
+            raise HTTPException(status_code=500, detail="credit_failed")
+        new_bal = credit.json().get("token_balance", row["tokens"])
 
-    return {"ok": True, "status": "confirmed", "tokens": row["tokens"]}
+    print(f"[slipok] credited {row['tokens']} tokens to {user['id']} for ref={body.ref} txn={txn_id}")
+    return {"ok": True, "status": "confirmed", "tokens": row["tokens"], "token_balance": new_bal}
 
 
 @app.get("/api/farm/payment/status/{ref}")

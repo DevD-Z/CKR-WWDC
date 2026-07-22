@@ -1474,7 +1474,7 @@
     try {
       const data = await api("/api/farm/payment/create", { method: "POST", body: { amount } });
       const qrImg = $("pp-qr-img");
-      if (qrImg) qrImg.src = data.qr_image;
+      if (qrImg) qrImg.src = data.qr_url;
       const amtEl = $("pp-qr-amount");
       if (amtEl) amtEl.textContent = data.amount_baht + " THB = " + data.tokens + " Tokens";
       const refEl = $("pp-qr-ref");
@@ -1491,24 +1491,39 @@
 
   $("pp-verify-btn")?.addEventListener("click", async () => {
     if (!ppRef) return;
-    setStatus($("pp-status"), "Verifying...", "load");
+    const slipData = ($("pp-slip-data")?.value || "").trim();
+    if (!slipData) {
+      setStatus($("pp-status"), "Please paste the QR code data from your payment slip", "err");
+      return;
+    }
+    setStatus($("pp-status"), "Verifying with SlipOK...", "load");
     try {
-      const data = await api("/api/farm/payment/status/" + ppRef);
+      const data = await api("/api/farm/payment/verify", { method: "POST", body: { ref: ppRef, data: slipData } });
       if (data.status === "confirmed") {
         stopPpPoll();
-        setStatus($("pp-status"), "✅ Payment confirmed! Tokens credited.", "ok");
+        setStatus($("pp-status"), "✅ Verified! +" + data.tokens + " Tokens credited.", "ok");
         $("pp-verify-area")?.classList.add("hidden");
         $("pp-verify-btn")?.remove();
-        try {
-          const me = await api("/api/me");
-          profile = me.profile;
+        if (typeof data.token_balance === "number") {
+          profile.token_balance = data.token_balance;
           paintProfile();
-        } catch (_) {}
+        } else {
+          try {
+            const me = await api("/api/me");
+            profile = me.profile;
+            paintProfile();
+          } catch (_) {}
+        }
       } else {
-        setStatus($("pp-status"), "⏳ Not yet paid — scan QR and pay first", "load");
+        setStatus($("pp-status"), "⏳ Not yet confirmed", "load");
       }
     } catch (e) {
-      setStatus($("pp-status"), "❌ " + e.message, "err");
+      const msg = e.message || "";
+      if (/duplicate_slip/i.test(msg)) {
+        setStatus($("pp-status"), "❌ This slip has already been used", "err");
+      } else {
+        setStatus($("pp-status"), "❌ " + msg, "err");
+      }
     }
   });
 
