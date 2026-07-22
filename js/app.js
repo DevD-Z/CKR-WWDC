@@ -1205,7 +1205,6 @@
       const params = new URLSearchParams(hash.slice(1));
       const err = params.get("discord_error");
       if (err) {
-        localStorage.removeItem("ckr_token");
         window.location.hash = "";
         window.history.replaceState(null, "", window.location.pathname);
         document.getElementById("login-status").textContent = "Discord login failed: " + err;
