@@ -888,6 +888,16 @@ async def farm_payment_callback(
 
     svc = _service_headers()
     async with httpx.AsyncClient(timeout=20.0) as client:
+        if body.transactionId:
+            dup = await client.get(
+                f"{SUPABASE_URL}/rest/v1/pending_payments",
+                params={"slipok_txn_id": f"eq.{body.transactionId}", "status": "eq.confirmed", "select": "id", "limit": "1"},
+                headers={**svc, "Accept": "application/json"},
+            )
+            if dup.status_code == 200 and dup.json():
+                print(f"[callback] duplicate slipok_txn_id={body.transactionId} rejected")
+                return {"ok": False, "detail": "duplicate_transaction"}
+
         q = await client.get(
             f"{SUPABASE_URL}/rest/v1/pending_payments",
             params={"ref": f"eq.{body.ref}", "select": "*", "limit": "1"},
