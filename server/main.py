@@ -467,7 +467,7 @@ async def discord_callback(code: str):
                         headers=svc,
                         params={"email": auth_email},
                     )
-                    uid = (lu.json() or [None])[0].get("id") if lu.status_code == 200 and lu.json() else None
+                    uid = (lu.json().get("users") or [None])[0].get("id") if lu.status_code == 200 and lu.json() else None
                     if not uid:
                         return _home("no_uid_422")
                     await client.put(
