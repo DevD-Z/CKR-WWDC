@@ -238,8 +238,8 @@ async def root():
         "ok": True,
         "service": "ckr-wwdc-api",
         "docs": "/api/health",
-        "ui": "https://devd-z.github.io/CKR-WWDC/",
-        "admin": "https://devd-z.github.io/CKR-WWDC/admin.html",
+        "ui": "https://devd-z.github.io/hotdog/",
+        "admin": "https://devd-z.github.io/hotdog/admin.html",
     }
 
 
@@ -379,7 +379,7 @@ async def discord_callback(code: str):
     def _home(reason: str = ""):
         suffix = f"#discord_error={quote(reason)}" if reason else ""
         return HTMLResponse(
-            content=f'<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=https://devd-z.github.io/CKR-WWDC/{suffix}"></head><body><p>Redirecting...</p></body></html>',
+            content=f'<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=https://devd-z.github.io/hotdog/{suffix}"></head><body><p>Redirecting...</p></body></html>',
             status_code=200,
         )
     try:
@@ -496,7 +496,7 @@ async def discord_callback(code: str):
         }
 
         access_token_str = session.get("access_token", "")
-        redirect_url = f"https://devd-z.github.io/CKR-WWDC/#access_token={access_token_str}"
+        redirect_url = f"https://devd-z.github.io/hotdog/#access_token={access_token_str}"
 
         html_page = f"""<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url={redirect_url}"></head><body><p>Signing in... redirecting to dashboard.</p></body></html>"""
 

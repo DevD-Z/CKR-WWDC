@@ -235,8 +235,8 @@ async def root():
         "ok": True,
         "service": "ckr-wwdc-api",
         "docs": "/api/health",
-        "ui": "https://devd-z.github.io/CKR-WWDC/",
-        "admin": "https://devd-z.github.io/CKR-WWDC/admin.html",
+        "ui": "https://devd-z.github.io/hotdog/",
+        "admin": "https://devd-z.github.io/hotdog/admin.html",
     }
 
 
@@ -497,7 +497,7 @@ async def discord_callback(code: str):
 const data = {json.dumps(token_data)};
 localStorage.setItem("ckr_token", data.access_token);
 localStorage.setItem("ckr_profile", JSON.stringify(data.profile));
-window.location.href = "https://devd-z.github.io/CKR-WWDC/";
+window.location.href = "https://devd-z.github.io/hotdog/";
 </script></head><body><p>Signing in... redirecting to dashboard.</p></body></html>"""
 
     return HTMLResponse(content=html_page, status_code=200)
