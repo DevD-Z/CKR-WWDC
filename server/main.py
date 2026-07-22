@@ -764,12 +764,27 @@ async def farm_redeem_voucher(
     except (ValueError, TypeError):
         amount_baht = 0
 
-    tokens = amount_baht
-    if tokens <= 0:
-        raise HTTPException(status_code=400, detail=f"ยอดเงินไม่ถูกต้อง: {amount_str}")
-
     if not _has_service_role():
         raise HTTPException(status_code=503, detail="service_role_not_configured")
+
+    # Fetch global voucher settings from admin profile
+    svc = _service_headers()
+    points_per_baht = 1
+    voucher_phone = "0644718725"
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        ar = await client.get(
+            f"{SUPABASE_URL}/rest/v1/profiles",
+            params={"role": "eq.admin", "select": "voucher_phone,points_per_baht", "limit": "1"},
+            headers={**svc, "Accept": "application/json"},
+        )
+        if ar.status_code == 200 and ar.json():
+            admin_row = ar.json()[0]
+            voucher_phone = admin_row.get("voucher_phone", "0644718725")
+            points_per_baht = int(admin_row.get("points_per_baht", 1))
+
+    tokens = amount_baht * points_per_baht
+    if tokens <= 0:
+        raise HTTPException(status_code=400, detail=f"ยอดเงินไม่ถูกต้อง: {amount_str}")
 
     async with httpx.AsyncClient(timeout=20.0) as client:
         credit = await client.post(
@@ -1184,7 +1199,7 @@ async def admin_update_user(
 @app.post("/api/admin/redeem-voucher")
 async def admin_redeem_voucher(
     body: RedeemVoucherBody,
-    admin: dict[str, Any] = Depends(require_admin),
+    user: dict[str, Any] = Depends(verify_admin),
 ):
     import re as _re
     import cloudscraper
@@ -1262,3 +1277,49 @@ async def admin_redeem_voucher(
         "tokens_added": tokens,
         "voucher_hash": voucher_hash,
     }
+
+
+class VoucherSettingsBody(BaseModel):
+    phone: str = Field(min_length=9, max_length=13, default="0644718725")
+    points_per_baht: int = Field(ge=1, le=1000, default=1)
+
+
+@app.get("/api/admin/voucher-settings")
+async def get_voucher_settings(
+    user: dict[str, Any] = Depends(verify_admin),
+):
+    if not _has_service_role():
+        raise HTTPException(status_code=503, detail="service_role_not_configured")
+    uid = user["id"]
+    svc = _service_headers()
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        r = await client.get(
+            f"{SUPABASE_URL}/rest/v1/profiles",
+            params={"id": f"eq.{uid}", "select": "voucher_phone,points_per_baht"},
+            headers={**svc, "Accept": "application/json"},
+        )
+        if r.status_code == 200 and r.json():
+            row = r.json()[0]
+            return {"ok": True, "phone": row.get("voucher_phone", "0644718725"), "points_per_baht": row.get("points_per_baht", 1)}
+        return {"ok": True, "phone": "0644718725", "points_per_baht": 1}
+
+
+@app.post("/api/admin/voucher-settings")
+async def set_voucher_settings(
+    body: VoucherSettingsBody,
+    user: dict[str, Any] = Depends(verify_admin),
+):
+    if not _has_service_role():
+        raise HTTPException(status_code=503, detail="service_role_not_configured")
+    uid = user["id"]
+    svc = _service_headers()
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        r = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/profiles",
+            params={"id": f"eq.{uid}"},
+            headers=svc,
+            json={"voucher_phone": body.phone.strip(), "points_per_baht": body.points_per_baht},
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(status_code=500, detail=r.text)
+    return {"ok": True, "phone": body.phone.strip(), "points_per_baht": body.points_per_baht}
