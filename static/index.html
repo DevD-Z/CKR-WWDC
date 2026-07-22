@@ -79,7 +79,7 @@
           <div class="divider">or</div>
           <div class="toggle-link" id="toggle-legacy" onclick="toggleLegacy()">Sign in with Username & Password ▼</div>
           <div class="legacy-login" id="legacy-login">
-            <form id="login-form" autocomplete="on">
+            <form id="login-form" onsubmit="return false" autocomplete="on">
               <label class="field">
                 <span>Username</span>
                 <input id="login-user" name="username" type="text" required autocomplete="username" placeholder="Your username" spellcheck="false" />
@@ -92,7 +92,7 @@
                 <input id="remember-me" type="checkbox" checked />
                 <span>Remember me</span>
               </label>
-              <button class="btn btn-candy" type="submit" id="login-btn">
+              <button class="btn btn-candy" type="button" id="login-btn">
                 <img src="assets/icon_giftpoint.png" alt="" width="20" height="20" />
                 Sign In
               </button>
@@ -288,6 +288,12 @@
       el.classList.toggle('collapsed');
       btn.textContent = el.classList.contains('collapsed') ? 'Sign in with Username & Password ▲' : 'Sign in with Username & Password ▼';
     }
+    function showLegacy() {
+      const el = document.getElementById('legacy-login');
+      const btn = document.getElementById('toggle-legacy');
+      el.classList.remove('collapsed');
+      btn.textContent = 'Sign in with Username & Password ▲';
+    }
     document.getElementById('discord-login-btn').addEventListener('click', async () => {
       try {
         const api = window.CKR_CONFIG?.API_BASE || 'https://ckr-wwdc-x0pe.onrender.com';
@@ -296,10 +302,12 @@
         if (data.ok && data.url) {
           window.location.href = data.url;
         } else {
-          alert('Discord login not configured on server');
+          showLegacy();
+          document.getElementById('login-user').focus();
         }
       } catch (e) {
-        alert('Failed to connect: ' + e.message);
+        showLegacy();
+        document.getElementById('login-user').focus();
       }
     });
   </script>
