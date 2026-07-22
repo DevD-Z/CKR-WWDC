@@ -294,7 +294,6 @@
         const res = await fetch(api + '/api/auth/discord');
         const data = await res.json();
         if (data.ok && data.url) {
-          localStorage.setItem('ckr_discord_state', '1');
           window.location.href = data.url;
         } else {
           alert('Discord login not configured on server');
@@ -303,25 +302,6 @@
         alert('Failed to connect: ' + e.message);
       }
     });
-    if (localStorage.getItem('ckr_discord_state')) {
-      localStorage.removeItem('ckr_discord_state');
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('code')) {
-        (async () => {
-          try {
-            const api = window.CKR_CONFIG?.API_BASE || 'https://ckr-wwdc-x0pe.onrender.com';
-            const res = await fetch(api + '/api/auth/discord/callback?code=' + encodeURIComponent(params.get('code')));
-            const data = await res.json();
-            if (data.ok && data.access_token) {
-              localStorage.setItem('ckr_token', data.access_token);
-              window.location.href = window.location.pathname;
-            }
-          } catch (e) {
-            console.error(e);
-          }
-        })();
-      }
-    }
   </script>
 </body>
 </html>
