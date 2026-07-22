@@ -10,7 +10,7 @@
   }
 
   const REMEMBER_KEY = "ckr_wwdc_remember";
-  const TELEGRAM_URL = "https://t.me/j3xdr";
+  const DISCORD_URL = "https://discord.gg/SabrUQ3PCh";
   const API = cfg.API_BASE || "";
   const INT32_MAX = 2147483647;
 
@@ -219,7 +219,7 @@
   let pendingAfterRunStatus = null;
 
   const ERR_TH = {
-    insufficient_tokens: "coins หมด กรุณาเติม",
+    insufficient_tokens: "Contact Admin on Discord",
     farm_busy: "ระบบกำลังยุ่งอยู่ ลองใหม่อีกสักครู่",
     farm_error: "การฟาร์มล้มเหลว ลองใหม่อีกครั้ง",
     consume_failed: "หักโทเค็นไม่สำเร็จ ลองใหม่อีกครั้ง",
@@ -350,15 +350,14 @@
     clearModalActions();
     openModal({
       mode: "empty",
-      title: "coins หมด กรุณาเติม",
-      body: "โทเค็นหมดแล้ว ไม่สามารถวิ่งฟาร์มได้ จนกว่าจะเติมโทเค็นผ่านแอดมิน",
+      title: "Contact Admin on Discord",
+      body: "No tokens left. Contact admin on Discord to top up.",
       icon: "assets/tr_event_116.png",
       locked: true,
     });
     modalActions.appendChild(
-      makeBtn("ติดต่อแอดมินทาง Telegram", "btn-telegram", null, {
-        href: TELEGRAM_URL,
-        icon: "assets/tr_event_116.png",
+      makeBtn("Contact Admin on Discord", "btn-discord", null, {
+        href: DISCORD_URL,
       })
     );
     modalActions.appendChild(
