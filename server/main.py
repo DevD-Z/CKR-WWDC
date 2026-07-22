@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from urllib.parse import quote, urlencode
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -786,18 +786,12 @@ class CreatePaymentBody(BaseModel):
     amount: int = Field(ge=15, le=10000)
 
 
-class VerifySlipBody(BaseModel):
-    ref: str = Field(min_length=1, max_length=64)
-    data: str = Field(min_length=10, max_length=2048)
-
-
 SLIPOK_CLIENT: httpx.AsyncClient | None = None
 
 
 def _slipok_headers() -> dict[str, str]:
     return {
         "x-authorization": SLIPOK_API_KEY,
-        "Content-Type": "application/json",
     }
 
 
@@ -817,6 +811,17 @@ async def farm_payment_create(
     ts = int(time.time())
     ref = f"PP{uid[:8]}{ts % 1000000}"
     qr_url = f"https://promptpay.io/{PROMPTPAY_NUMBER}/{body.amount}?ref={ref}"
+
+    # Fetch QR image server-side to return as data URL
+    qr_image_b64 = None
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as c:
+            qr_resp = await c.get(qr_url.replace("https://promptpay.io", "https://promptpay.io"))
+            if qr_resp.status_code == 200:
+                import base64
+                qr_image_b64 = "data:image/png;base64," + base64.b64encode(qr_resp.content).decode()
+    except Exception:
+        pass
 
     svc = _service_headers()
     points_per_baht = POINTS_PER_BAHT_PROMPTPAY
@@ -849,6 +854,7 @@ async def farm_payment_create(
         "ok": True,
         "ref": ref,
         "qr_url": qr_url,
+        "qr_image": qr_image_b64 or qr_url,
         "amount_baht": body.amount,
         "tokens": body.amount * points_per_baht,
         "promptpay_number": PROMPTPAY_NUMBER,
@@ -857,10 +863,11 @@ async def farm_payment_create(
 
 @app.post("/api/farm/payment/verify")
 async def farm_payment_verify(
-    body: VerifySlipBody,
+    ref: str = Form(...),
+    file: UploadFile = File(...),
     user: dict[str, Any] = Depends(verify_user),
 ):
-    """Verify a payment slip via SlipOK API."""
+    """Verify a payment slip image via SlipOK API."""
     if not _has_service_role():
         raise HTTPException(status_code=503, detail="service_role_not_configured")
 
@@ -870,7 +877,7 @@ async def farm_payment_verify(
     async with httpx.AsyncClient(timeout=20.0) as c:
         q = await c.get(
             f"{SUPABASE_URL}/rest/v1/pending_payments",
-            params={"ref": f"eq.{body.ref}", "user_id": f"eq.{user['id']}", "select": "*", "limit": "1"},
+            params={"ref": f"eq.{ref}", "user_id": f"eq.{user['id']}", "select": "*", "limit": "1"},
             headers={**svc, "Accept": "application/json"},
         )
         if q.status_code != 200 or not q.json():
@@ -879,16 +886,23 @@ async def farm_payment_verify(
         if row["status"] != "pending":
             return {"ok": True, "status": row["status"], "tokens": row["tokens"]}
 
-    # Verify via SlipOK
+    # Read uploaded file bytes
+    file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="empty_file")
+
+    # Verify via SlipOK (multipart with file)
     try:
         client = await _slipok_session()
         sl_res = await client.post(
             SLIPOK_BASE,
             headers=_slipok_headers(),
-            json={
-                "data": body.data,
-                "log": True,
-                "amount": row["amount_baht"],
+            files={
+                "files": (file.filename or "slip.png", file_bytes, file.content_type or "image/png"),
+            },
+            data={
+                "log": "true",
+                "amount": str(row["amount_baht"]),
             },
         )
         sl_data = sl_res.json()
@@ -904,7 +918,7 @@ async def farm_payment_verify(
     except httpx.RequestError as e:
         raise HTTPException(status_code=502, detail=f"SlipOK connection failed: {e}")
 
-    # Check duplicate txn_id
+    # Check duplicate txn_id & credit tokens
     async with httpx.AsyncClient(timeout=20.0) as c:
         dup = await c.get(
             f"{SUPABASE_URL}/rest/v1/pending_payments",
@@ -914,7 +928,6 @@ async def farm_payment_verify(
         if dup.status_code == 200 and dup.json():
             return {"ok": False, "detail": "duplicate_slip", "transRef": txn_id}
 
-        # Credit tokens
         await c.patch(
             f"{SUPABASE_URL}/rest/v1/pending_payments?id=eq.{row['id']}",
             headers=svc,
@@ -930,14 +943,14 @@ async def farm_payment_verify(
             json={
                 "p_user_id": user["id"],
                 "p_amount": row["tokens"],
-                "p_reason": f"promptpay_{body.ref}",
+                "p_reason": f"promptpay_{ref}",
             },
         )
         if credit.status_code != 200:
             raise HTTPException(status_code=500, detail="credit_failed")
         new_bal = credit.json().get("token_balance", row["tokens"])
 
-    print(f"[slipok] credited {row['tokens']} tokens to {user['id']} for ref={body.ref} txn={txn_id}")
+    print(f"[slipok] credited {row['tokens']} tokens to {user['id']} for ref={ref} txn={txn_id}")
     return {"ok": True, "status": "confirmed", "tokens": row["tokens"], "token_balance": new_bal}
 
 

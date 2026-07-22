@@ -234,11 +234,12 @@
               <p id="pp-status" class="status" role="status"></p>
               <div id="pp-verify-area" class="hidden">
                 <label class="field">
-                  <span>QR Data from slip <span style="color:#64748b;font-weight:400">(optional — paste from bank app)</span></span>
-                  <input type="text" id="pp-slip-data" placeholder="e.g. 000201010211... or leave empty" />
+                  <span>Upload payment slip screenshot</span>
+                  <input type="file" id="pp-slip-file" accept="image/png,image/jpeg,image/jpg" style="color:#94a3b8;font-size:0.85rem" />
                 </label>
                 <button class="btn btn-candy" id="pp-verify-btn" style="width:100%;margin-top:4px">
-                  I've Paid — Verify
+                  <img src="assets/boost16_shop.png" alt="" width="18" height="18" />
+                  Verify Slip
                 </button>
               </div>
             </div>
