@@ -518,12 +518,11 @@ async def discord_callback(code: str):
         "profile": profile_out,
     }
 
-    html_page = f"""<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><script>
-const data = {json.dumps(token_data)};
-localStorage.setItem("ckr_token", data.access_token);
-localStorage.setItem("ckr_profile", JSON.stringify(data.profile));
-window.location.href = "https://devd-z.github.io/CKR-WWDC/";
-</script></head><body><p>Signing in... redirecting to dashboard.</p></body></html>"""
+    access_token_str = session.get("access_token", "")
+    profile_json = json.dumps(profile_out)
+    redirect_url = f"https://devd-z.github.io/CKR-WWDC/#access_token={access_token_str}&profile={urllib.parse.quote(profile_json)}"
+
+    html_page = f"""<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url={redirect_url}"></head><body><p>Signing in... redirecting to dashboard.</p></body></html>"""
 
     return HTMLResponse(content=html_page, status_code=200)
 
