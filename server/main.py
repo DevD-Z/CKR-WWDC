@@ -452,10 +452,25 @@ async def discord_callback(code: str):
                     "user_metadata": {"username": discord_username, "display_name": discord_username},
                 },
             )
-            if cr.status_code not in (200, 201):
+            if cr.status_code in (200, 201):
+                uid = cr.json().get("id")
+            elif cr.status_code == 422:
+                lu = await client.get(
+                    f"{SUPABASE_URL}/auth/v1/admin/users",
+                    headers=svc,
+                    params={"email": auth_email},
+                )
+                uid = (lu.json() or [None])[0].get("id") if lu.status_code == 200 and lu.json() else None
+                if not uid:
+                    raise HTTPException(status_code=500, detail="discord_user_exists_but_not_found")
+                await client.put(
+                    f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
+                    headers=svc,
+                    json={"password": temp_pass},
+                )
+            else:
                 body_text = cr.text[:500]
                 raise HTTPException(status_code=500, detail=f"discord_user_create_failed: {cr.status_code} {body_text}")
-            uid = cr.json().get("id")
             if not uid:
                 raise HTTPException(status_code=500, detail="discord_no_uid")
             await client.patch(
