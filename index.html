@@ -306,6 +306,8 @@
         if (data.ok && data.access_token) {
           localStorage.setItem('ckr_token', data.access_token);
           if (data.refresh_token) localStorage.setItem('ckr_refresh', data.refresh_token);
+          window.location.hash = "";
+          window.history.replaceState(null, "", window.location.pathname);
           window.location.reload();
         } else {
           status.textContent = data.detail || data.error || 'Login failed';
