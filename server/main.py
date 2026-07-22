@@ -376,12 +376,19 @@ async def discord_auth():
 
 @app.get("/api/auth/discord/callback")
 async def discord_callback(code: str):
-    if not DISCORD_CLIENT_ID or not DISCORD_CLIENT_SECRET:
-        raise HTTPException(status_code=503, detail="discord_not_configured")
-    if not code:
-        raise HTTPException(status_code=400, detail="missing_code")
-    if not _has_service_role():
-        raise HTTPException(status_code=503, detail="service_role_not_configured")
+    _redirect_home = lambda: HTMLResponse(
+        content='<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=https://devd-z.github.io/CKR-WWDC/"></head><body><p>Redirecting...</p></body></html>',
+        status_code=200,
+    )
+    try:
+        if not DISCORD_CLIENT_ID or not DISCORD_CLIENT_SECRET:
+            return _redirect_home()
+        if not code:
+            return _redirect_home()
+        if not _has_service_role():
+            return _redirect_home()
+    except Exception:
+        return _redirect_home()
 
     async with httpx.AsyncClient(timeout=20.0) as client:
         token_resp = await client.post(
@@ -396,10 +403,7 @@ async def discord_callback(code: str):
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         if token_resp.status_code != 200:
-            body = token_resp.text[:300]
-            err_url = "https://devd-z.github.io/CKR-WWDC/"
-            html_err = f"""<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url={err_url}"></head><body><p>Redirecting...</p></body></html>"""
-            return HTMLResponse(content=html_err, status_code=200)
+            return _redirect_home()
         token_data = token_resp.json()
         discord_token = token_data.get("access_token")
 
@@ -408,7 +412,7 @@ async def discord_callback(code: str):
             headers={"Authorization": f"Bearer {discord_token}"},
         )
         if user_resp.status_code != 200:
-            raise HTTPException(status_code=400, detail="discord_user_fetch_failed")
+            return _redirect_home()
         discord_user = user_resp.json()
 
     discord_id = str(discord_user.get("id"))
@@ -429,7 +433,7 @@ async def discord_callback(code: str):
             uid = existing["id"]
             auth_email = existing.get("email")
             if not auth_email:
-                raise HTTPException(status_code=500, detail="existing_user_no_email")
+                return _redirect_home()
             await client.patch(
                 f"{SUPABASE_URL}/rest/v1/profiles",
                 params={"id": f"eq.{uid}"},
@@ -465,17 +469,16 @@ async def discord_callback(code: str):
                 )
                 uid = (lu.json() or [None])[0].get("id") if lu.status_code == 200 and lu.json() else None
                 if not uid:
-                    raise HTTPException(status_code=500, detail="discord_user_exists_but_not_found")
+                    return _redirect_home()
                 await client.put(
                     f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
                     headers=svc,
                     json={"password": temp_pass},
                 )
             else:
-                body_text = cr.text[:500]
-                raise HTTPException(status_code=500, detail=f"discord_user_create_failed: {cr.status_code} {body_text}")
+                return _redirect_home()
             if not uid:
-                raise HTTPException(status_code=500, detail="discord_no_uid")
+                return _redirect_home()
             await client.patch(
                 f"{SUPABASE_URL}/rest/v1/profiles",
                 params={"id": f"eq.{uid}"},
@@ -499,7 +502,7 @@ async def discord_callback(code: str):
             json={"email": auth_email, "password": temp_pass},
         )
         if sign.status_code != 200:
-            raise HTTPException(status_code=401, detail="discord_login_failed")
+            return _redirect_home()
         session = sign.json()
 
     profile_out = {
@@ -508,16 +511,6 @@ async def discord_callback(code: str):
         "username": discord_username,
         "display_name": discord_username,
         "token_balance": existing.get("token_balance", 0) if existing else 0,
-    }
-
-    token_data = {
-        "ok": True,
-        "access_token": session.get("access_token"),
-        "refresh_token": session.get("refresh_token"),
-        "expires_in": session.get("expires_in"),
-        "token_type": session.get("token_type", "bearer"),
-        "user": {"id": uid, "username": discord_username},
-        "profile": profile_out,
     }
 
     access_token_str = session.get("access_token", "")
