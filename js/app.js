@@ -1201,16 +1201,24 @@
   async function bootstrap() {
     // Check URL hash for Discord OAuth token
     const hash = window.location.hash;
-    if (hash && hash.includes("access_token=")) {
-      try {
-        const params = new URLSearchParams(hash.slice(1));
-        const t = params.get("access_token");
-        if (t) {
-          localStorage.setItem("ckr_token", t);
-        }
+    if (hash) {
+      const params = new URLSearchParams(hash.slice(1));
+      const err = params.get("discord_error");
+      if (err) {
+        localStorage.removeItem("ckr_token");
         window.location.hash = "";
         window.history.replaceState(null, "", window.location.pathname);
-      } catch (_) {}
+        document.getElementById("login-status").textContent = "Discord login failed: " + err;
+      } else if (hash.includes("access_token=")) {
+        try {
+          const t = params.get("access_token");
+          if (t) {
+            localStorage.setItem("ckr_token", t);
+          }
+          window.location.hash = "";
+          window.history.replaceState(null, "", window.location.pathname);
+        } catch (_) {}
+      }
     }
 
     setupDevPlayAutofillGuards();
