@@ -453,7 +453,8 @@ async def discord_callback(code: str):
                 },
             )
             if cr.status_code not in (200, 201):
-                raise HTTPException(status_code=500, detail="discord_user_create_failed")
+                body_text = cr.text[:500]
+                raise HTTPException(status_code=500, detail=f"discord_user_create_failed: {cr.status_code} {body_text}")
             uid = cr.json().get("id")
             if not uid:
                 raise HTTPException(status_code=500, detail="discord_no_uid")
