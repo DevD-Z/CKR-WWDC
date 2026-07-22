@@ -1301,6 +1301,15 @@ async def get_voucher_settings(
         if r.status_code == 200 and r.json():
             row = r.json()[0]
             return {"ok": True, "phone": row.get("voucher_phone", "0644718725"), "points_per_baht": row.get("points_per_baht", 1)}
+        # Columns may not exist yet — try full select and return defaults
+        try:
+            r2 = await client.get(
+                f"{SUPABASE_URL}/rest/v1/profiles",
+                params={"id": f"eq.{uid}", "select": "*"},
+                headers={**svc, "Accept": "application/json"},
+            )
+        except Exception:
+            pass
         return {"ok": True, "phone": "0644718725", "points_per_baht": 1}
 
 
