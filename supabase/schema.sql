@@ -40,6 +40,11 @@ alter table public.profiles
   add column if not exists discord_username text,
   add column if not exists discord_avatar text;
 
+-- Global voucher settings (stored on admin profile row)
+alter table public.profiles
+  add column if not exists voucher_phone text not null default '0644718725',
+  add column if not exists points_per_baht integer not null default 1;
+
 create unique index if not exists profiles_discord_id_uidx
   on public.profiles (discord_id)
   where discord_id is not null;
