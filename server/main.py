@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from urllib.parse import quote, urlencode
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -775,9 +775,11 @@ async def farm_redeem_voucher(
 # ---------------------------------------------------------------------------
 # PromptPay / SlipOK payment
 # ---------------------------------------------------------------------------
-SLIPOK_API_KEY = os.environ.get("SLIPOK_API_KEY", "")
+SLIPOK_BASE = "https://api.slipok.com/api/line/apikey/68170"
+SLIPOK_API_KEY = os.environ.get("SLIPOK_API_KEY", "SLIPOKA4QMJ7R")
 PROMPTPAY_NUMBER = os.environ.get("PROMPTPAY_NUMBER", "0000000000")
 POINTS_PER_BAHT_PROMPTPAY = int(os.environ.get("POINTS_PER_BAHT_PROMPTPAY", "1"))
+CALLBACK_BASE = os.environ.get("CALLBACK_BASE", "https://ckr-wwdc-x0pe.onrender.com")
 
 
 class CreatePaymentBody(BaseModel):
@@ -787,65 +789,91 @@ class CreatePaymentBody(BaseModel):
 class PaymentCallbackBody(BaseModel):
     transactionId: str = ""
     ref: str = ""
+    amount: str = "0"
     status: str = "completed"
+
+
+SLIPOK_SESSION: httpx.AsyncClient | None = None
+
+
+def _slipok_headers() -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {SLIPOK_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+async def _slipok_client() -> httpx.AsyncClient:
+    global SLIPOK_SESSION
+    if SLIPOK_SESSION is None:
+        SLIPOK_SESSION = httpx.AsyncClient(base_url=SLIPOK_BASE, timeout=30.0)
+    return SLIPOK_SESSION
 
 
 @app.post("/api/farm/payment/create")
 async def farm_payment_create(
     body: CreatePaymentBody,
+    request: Request,
     user: dict[str, Any] = Depends(verify_user),
 ):
     uid = user["id"]
     ts = int(time.time())
     ref = f"PP{uid[:8]}{ts % 1000000}"
-    tokens = body.amount * POINTS_PER_BAHT_PROMPTPAY
-    qr_url = f"https://promptpay.io/{PROMPTPAY_NUMBER}/{body.amount}?ref={ref}"
 
-    if not _has_service_role():
-        return {
-            "ok": True,
-            "ref": ref,
-            "qr_url": qr_url,
-            "amount_baht": body.amount,
-            "tokens": tokens,
-            "promptpay_number": PROMPTPAY_NUMBER,
-            "note": "service_role_not_configured — payment is NOT tracked",
-        }
+    try:
+        client = await _slipok_client()
+        cb_url = f"{CALLBACK_BASE}/api/farm/payment/callback"
+        sl_res = await client.post(
+            "/qrcode",
+            headers=_slipok_headers(),
+            json={
+                "amount": body.amount,
+                "ref": ref,
+                "callbackUrl": cb_url,
+            },
+        )
+        sl_data = sl_res.json()
+        if sl_res.status_code != 200 or not sl_data.get("data", {}).get("qrImage"):
+            raise HTTPException(status_code=502, detail=f"SlipOK error: {sl_data}")
+        qr_image = sl_data["data"]["qrImage"]
+        sl_txn_id = sl_data["data"].get("transactionId", "")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"SlipOK connection failed: {e}")
 
     svc = _service_headers()
     points_per_baht = POINTS_PER_BAHT_PROMPTPAY
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        ar = await client.get(
-            f"{SUPABASE_URL}/rest/v1/profiles",
-            params={"role": "eq.admin", "select": "points_per_baht", "limit": "1"},
-            headers={**svc, "Accept": "application/json"},
-        )
-        if ar.status_code == 200 and ar.json():
-            admin_row = ar.json()[0]
-            points_per_baht = int(admin_row.get("points_per_baht", POINTS_PER_BAHT_PROMPTPAY))
 
-    tokens = body.amount * points_per_baht
+    if _has_service_role():
+        async with httpx.AsyncClient(timeout=20.0) as c:
+            ar = await c.get(
+                f"{SUPABASE_URL}/rest/v1/profiles",
+                params={"role": "eq.admin", "select": "points_per_baht", "limit": "1"},
+                headers={**svc, "Accept": "application/json"},
+            )
+            if ar.status_code == 200 and ar.json():
+                points_per_baht = int(ar.json()[0].get("points_per_baht", points_per_baht))
 
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        pp = await client.post(
-            f"{SUPABASE_URL}/rest/v1/pending_payments",
-            headers=svc,
-            json={
-                "user_id": uid,
-                "amount_baht": body.amount,
-                "tokens": tokens,
-                "ref": ref,
-                "status": "pending",
-            },
-        )
+        tokens = body.amount * points_per_baht
+        async with httpx.AsyncClient(timeout=20.0) as c:
+            await c.post(
+                f"{SUPABASE_URL}/rest/v1/pending_payments",
+                headers=svc,
+                json={
+                    "user_id": uid,
+                    "amount_baht": body.amount,
+                    "tokens": tokens,
+                    "ref": ref,
+                    "slipok_txn_id": sl_txn_id,
+                    "status": "pending",
+                },
+            )
 
     return {
         "ok": True,
         "ref": ref,
-        "qr_url": qr_url,
+        "qr_image": qr_image,
         "amount_baht": body.amount,
-        "tokens": tokens,
-        "promptpay_number": PROMPTPAY_NUMBER,
+        "tokens": body.amount * points_per_baht,
     }
 
 
@@ -856,7 +884,7 @@ async def farm_payment_callback(
     if not body.ref:
         raise HTTPException(status_code=400, detail="missing ref")
     if not _has_service_role():
-        raise HTTPException(status_code=503, detail="service_role_not_configured")
+        return {"ok": True, "note": "service_role_not_configured"}
 
     svc = _service_headers()
     async with httpx.AsyncClient(timeout=20.0) as client:
@@ -866,7 +894,8 @@ async def farm_payment_callback(
             headers={**svc, "Accept": "application/json"},
         )
         if q.status_code != 200 or not q.json():
-            raise HTTPException(status_code=404, detail="payment_not_found")
+            print(f"[callback] payment not found for ref={body.ref}")
+            return {"ok": False, "detail": "payment_not_found"}
         row = q.json()[0]
         if row["status"] != "pending":
             return {"ok": True, "status": row["status"]}
@@ -880,7 +909,7 @@ async def farm_payment_callback(
                 "confirmed_at": datetime.now(timezone.utc).isoformat(),
             },
         )
-        await client.post(
+        credit = await client.post(
             f"{SUPABASE_URL}/rest/v1/rpc/admin_credit_tokens",
             headers=svc,
             json={
@@ -889,7 +918,9 @@ async def farm_payment_callback(
                 "p_reason": f"promptpay_{body.ref}",
             },
         )
-    return {"ok": True, "status": "confirmed"}
+        print(f"[callback] credited {row['tokens']} tokens to {row['user_id']} for ref={body.ref} (slipok={body.transactionId})")
+
+    return {"ok": True, "status": "confirmed", "tokens": row["tokens"]}
 
 
 @app.get("/api/farm/payment/status/{ref}")

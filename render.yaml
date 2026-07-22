@@ -27,3 +27,5 @@ services:
         sync: false
       - key: POINTS_PER_BAHT_PROMPTPAY
         value: "1"
+      - key: CALLBACK_BASE
+        value: https://ckr-wwdc-x0pe.onrender.com

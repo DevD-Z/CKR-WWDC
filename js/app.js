@@ -1474,7 +1474,7 @@
     try {
       const data = await api("/api/farm/payment/create", { method: "POST", body: { amount } });
       const qrImg = $("pp-qr-img");
-      if (qrImg) qrImg.src = data.qr_url;
+      if (qrImg) qrImg.src = data.qr_image;
       const amtEl = $("pp-qr-amount");
       if (amtEl) amtEl.textContent = data.amount_baht + " THB = " + data.tokens + " Tokens";
       const refEl = $("pp-qr-ref");
