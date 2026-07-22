@@ -15,7 +15,7 @@ from typing import Any, Optional
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -397,7 +397,9 @@ async def discord_callback(code: str):
         )
         if token_resp.status_code != 200:
             body = token_resp.text[:300]
-            raise HTTPException(status_code=400, detail=f"discord_token_exchange_failed: {token_resp.status_code} {body}")
+            err_url = "https://devd-z.github.io/CKR-WWDC/"
+            html_err = f"""<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url={err_url}"></head><body><p>Redirecting...</p></body></html>"""
+            return HTMLResponse(content=html_err, status_code=200)
         token_data = token_resp.json()
         discord_token = token_data.get("access_token")
 
@@ -520,7 +522,7 @@ async def discord_callback(code: str):
 
     access_token_str = session.get("access_token", "")
     profile_json = json.dumps(profile_out)
-    redirect_url = f"https://devd-z.github.io/CKR-WWDC/#access_token={access_token_str}&profile={urllib.parse.quote(profile_json)}"
+    redirect_url = f"https://devd-z.github.io/CKR-WWDC/#access_token={access_token_str}&profile={quote(profile_json)}"
 
     html_page = f"""<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url={redirect_url}"></head><body><p>Signing in... redirecting to dashboard.</p></body></html>"""
 
