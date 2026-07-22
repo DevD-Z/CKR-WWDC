@@ -376,18 +376,19 @@ async def discord_auth():
 
 @app.get("/api/auth/discord/callback")
 async def discord_callback(code: str):
-    def _home():
+    def _home(reason: str = ""):
+        suffix = f"#discord_error={reason}" if reason else ""
         return HTMLResponse(
-            content='<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=https://devd-z.github.io/CKR-WWDC/"></head><body><p>Redirecting...</p></body></html>',
+            content=f'<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=https://devd-z.github.io/CKR-WWDC/{suffix}"></head><body><p>Redirecting...</p></body></html>',
             status_code=200,
         )
     try:
         if not DISCORD_CLIENT_ID or not DISCORD_CLIENT_SECRET:
-            return _home()
+            return _home("no_discord_creds")
         if not code:
-            return _home()
+            return _home("no_code")
         if not _has_service_role():
-            return _home()
+            return _home("no_svc_role")
 
         async with httpx.AsyncClient(timeout=20.0) as client:
             token_resp = await client.post(
@@ -402,7 +403,7 @@ async def discord_callback(code: str):
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
             if token_resp.status_code != 200:
-                return _home()
+                return _home("discord_token_fail")
             token_data = token_resp.json()
             discord_token = token_data.get("access_token")
 
@@ -411,7 +412,7 @@ async def discord_callback(code: str):
                 headers={"Authorization": f"Bearer {discord_token}"},
             )
             if user_resp.status_code != 200:
-                return _home()
+                return _home("discord_user_fail")
             discord_user = user_resp.json()
 
         discord_id = str(discord_user.get("id"))
@@ -432,7 +433,7 @@ async def discord_callback(code: str):
                 uid = existing["id"]
                 auth_email = existing.get("email")
                 if not auth_email:
-                    return _home()
+                    return _home("existing_no_email")
                 await client.patch(
                     f"{SUPABASE_URL}/rest/v1/profiles",
                     params={"id": f"eq.{uid}"},
@@ -468,16 +469,16 @@ async def discord_callback(code: str):
                     )
                     uid = (lu.json() or [None])[0].get("id") if lu.status_code == 200 and lu.json() else None
                     if not uid:
-                        return _home()
+                        return _home("no_uid_422")
                     await client.put(
                         f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
                         headers=svc,
                         json={"password": temp_pass},
                     )
                 else:
-                    return _home()
+                    return _home("create_user_fail")
                 if not uid:
-                    return _home()
+                    return _home("no_uid")
                 await client.patch(
                     f"{SUPABASE_URL}/rest/v1/profiles",
                     params={"id": f"eq.{uid}"},
@@ -501,7 +502,8 @@ async def discord_callback(code: str):
                 json={"email": auth_email, "password": temp_pass},
             )
             if sign.status_code != 200:
-                return _home()
+                return _home("sign_in_fail")
+
             session = sign.json()
 
         profile_out = {
@@ -518,8 +520,8 @@ async def discord_callback(code: str):
         html_page = f"""<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url={redirect_url}"></head><body><p>Signing in... redirecting to dashboard.</p></body></html>"""
 
         return HTMLResponse(content=html_page, status_code=200)
-    except Exception:
-        return _home()
+    except Exception as exc:
+        return _home(f"exception:{type(exc).__name__}")
 
 
 def _svc():
