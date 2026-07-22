@@ -513,8 +513,7 @@ async def discord_callback(code: str):
         }
 
         access_token_str = session.get("access_token", "")
-        profile_json = json.dumps(profile_out)
-        redirect_url = f"https://devd-z.github.io/CKR-WWDC/#access_token={access_token_str}&profile={quote(profile_json)}"
+        redirect_url = f"https://devd-z.github.io/CKR-WWDC/#access_token={access_token_str}"
 
         html_page = f"""<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url={redirect_url}"></head><body><p>Signing in... redirecting to dashboard.</p></body></html>"""
 
