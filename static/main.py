@@ -705,8 +705,6 @@ async def farm_redeem_voucher(
     user: dict[str, Any] = Depends(verify_user),
 ):
     import re as _re
-    import cloudscraper
-    import certifi as _certifi
 
     url = body.voucher_url.strip()
     phone = body.phone.strip()
@@ -718,37 +716,40 @@ async def farm_redeem_voucher(
 
     voucher_hash = match.group(1)
 
-    try:
-        scraper = cloudscraper.create_scraper()
-        resp = scraper.post(
-            f"https://gift.truemoney.com/campaign/vouchers/{voucher_hash}/redeem",
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
-            json={"mobile": phone, "voucher_hash": voucher_hash},
-            verify=_certifi.where(),
-            timeout=30,
-        )
-        data = resp.json()
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"เรียก API TrueMoney ไม่สำเร็จ: {e}")
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            resp = await client.get(f"https://api.xpluem.com/{voucher_hash}/{phone}")
+            data = resp.json()
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"เรียก API TrueMoney ไม่สำเร็จ: {e}")
 
-    code = (data.get("status") or {}).get("code", "UNKNOWN")
-    message = (data.get("status") or {}).get("message", "")
-    amount_str = (data.get("data") or {}).get("my_ticket", {}).get("amount_baht", "0")
-
-    if code != "SUCCESS":
-        raise HTTPException(status_code=400, detail=f"ซองไม่สำเร็จ: {code} — {message}")
+    if not data.get("success"):
+        msg = data.get("message", "ไม่ทราบสาเหตุ")
+        raise HTTPException(status_code=400, detail=f"ซองไม่สำเร็จ: {msg}")
 
     try:
-        amount_baht = int(float(amount_str))
+        amount_baht = int(float(data.get("data", {}).get("amount", "0")))
     except (ValueError, TypeError):
         amount_baht = 0
 
-    tokens = amount_baht
-    if tokens <= 0:
-        raise HTTPException(status_code=400, detail=f"ยอดเงินไม่ถูกต้อง: {amount_str}")
-
     if not _has_service_role():
         raise HTTPException(status_code=503, detail="service_role_not_configured")
+
+    svc = _service_headers()
+    points_per_baht = 1
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        ar = await client.get(
+            f"{SUPABASE_URL}/rest/v1/profiles",
+            params={"role": "eq.admin", "select": "points_per_baht", "limit": "1"},
+            headers={**svc, "Accept": "application/json"},
+        )
+        if ar.status_code == 200 and ar.json():
+            admin_row = ar.json()[0]
+            points_per_baht = int(admin_row.get("points_per_baht", 1))
+
+    tokens = amount_baht * points_per_baht
+    if tokens <= 0:
+        raise HTTPException(status_code=400, detail="ยอดเงินไม่ถูกต้อง")
 
     async with httpx.AsyncClient(timeout=20.0) as client:
         credit = await client.post(
@@ -1166,8 +1167,6 @@ async def admin_redeem_voucher(
     admin: dict[str, Any] = Depends(require_admin),
 ):
     import re as _re
-    import cloudscraper
-    import certifi as _certifi
 
     if not _has_service_role():
         raise HTTPException(status_code=503, detail="service_role_not_configured")
@@ -1184,34 +1183,25 @@ async def admin_redeem_voucher(
 
     voucher_hash = match.group(1)
 
-    try:
-        scraper = cloudscraper.create_scraper()
-        resp = scraper.post(
-            f"https://gift.truemoney.com/campaign/vouchers/{voucher_hash}/redeem",
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
-            json={"mobile": phone, "voucher_hash": voucher_hash},
-            verify=_certifi.where(),
-            timeout=30,
-        )
-        data = resp.json()
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"เรียก API TrueMoney ไม่สำเร็จ: {e}")
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            resp = await client.get(f"https://api.xpluem.com/{voucher_hash}/{phone}")
+            data = resp.json()
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"เรียก API TrueMoney ไม่สำเร็จ: {e}")
 
-    code = (data.get("status") or {}).get("code", "UNKNOWN")
-    message = (data.get("status") or {}).get("message", "")
-    amount_str = (data.get("data") or {}).get("my_ticket", {}).get("amount_baht", "0")
-
-    if code != "SUCCESS":
-        raise HTTPException(status_code=400, detail=f"ซองไม่สำเร็จ: {code} — {message}")
+    if not data.get("success"):
+        msg = data.get("message", "ไม่ทราบสาเหตุ")
+        raise HTTPException(status_code=400, detail=f"ซองไม่สำเร็จ: {msg}")
 
     try:
-        amount_baht = int(float(amount_str))
+        amount_baht = int(float(data.get("data", {}).get("amount", "0")))
     except (ValueError, TypeError):
         amount_baht = 0
 
     tokens = amount_baht
     if tokens <= 0:
-        raise HTTPException(status_code=400, detail=f"ยอดเงินไม่ถูกต้อง: {amount_str}")
+        raise HTTPException(status_code=400, detail="ยอดเงินไม่ถูกต้อง")
 
     async with httpx.AsyncClient(timeout=20.0) as client:
         looked = await client.post(
