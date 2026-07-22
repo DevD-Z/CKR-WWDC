@@ -1,4 +1,4 @@
-"""hotdog. API — FastAPI farm backend (no HTML UI)."""
+"""CKR WWDC API — FastAPI farm backend (no HTML UI)."""
 from __future__ import annotations
 
 import asyncio
@@ -15,7 +15,7 @@ from typing import Any, Optional
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -39,9 +39,6 @@ SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
 DISCORD_REDIRECT_URI = os.environ.get("DISCORD_REDIRECT_URI", "https://ckr-wwdc-x0pe.onrender.com/api/auth/discord/callback")
-
-print("[boot] SUPABASE_URL set:", bool(SUPABASE_URL))
-print("[boot] DISCORD_CLIENT_ID set:", bool(DISCORD_CLIENT_ID))
 
 # Sequential farm queue (Render Free = single instance)
 _farm_lock = threading.Lock()
@@ -72,7 +69,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="hotdog. API", version="1.1.0", lifespan=lifespan)
+app = FastAPI(title="CKR WWDC API", version="1.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -376,133 +373,134 @@ async def discord_auth():
 
 @app.get("/api/auth/discord/callback")
 async def discord_callback(code: str):
-    def _home(reason: str = ""):
-        suffix = f"#discord_error={quote(reason)}" if reason else ""
-        return HTMLResponse(
-            content=f'<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=https://devd-z.github.io/CKR-WWDC/{suffix}"></head><body><p>Redirecting...</p></body></html>',
-            status_code=200,
+    if not DISCORD_CLIENT_ID or not DISCORD_CLIENT_SECRET:
+        raise HTTPException(status_code=503, detail="discord_not_configured")
+    if not code:
+        raise HTTPException(status_code=400, detail="missing_code")
+    if not _has_service_role():
+        raise HTTPException(status_code=503, detail="service_role_not_configured")
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        token_resp = await client.post(
+            "https://discord.com/api/oauth2/token",
+            data={
+                "client_id": DISCORD_CLIENT_ID,
+                "client_secret": DISCORD_CLIENT_SECRET,
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": DISCORD_REDIRECT_URI,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
-    try:
-        if not DISCORD_CLIENT_ID or not DISCORD_CLIENT_SECRET:
-            return _home("no_discord_creds")
-        if not code:
-            return _home("no_code")
-        if not _has_service_role():
-            return _home("no_svc_role")
+        if token_resp.status_code != 200:
+            raise HTTPException(status_code=400, detail="discord_token_exchange_failed")
+        token_data = token_resp.json()
+        discord_token = token_data.get("access_token")
 
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            token_resp = await client.post(
-                "https://discord.com/api/oauth2/token",
-                data={
-                    "client_id": DISCORD_CLIENT_ID,
-                    "client_secret": DISCORD_CLIENT_SECRET,
-                    "grant_type": "authorization_code",
-                    "code": code,
-                    "redirect_uri": DISCORD_REDIRECT_URI,
+        user_resp = await client.get(
+            "https://discord.com/api/users/@me",
+            headers={"Authorization": f"Bearer {discord_token}"},
+        )
+        if user_resp.status_code != 200:
+            raise HTTPException(status_code=400, detail="discord_user_fetch_failed")
+        discord_user = user_resp.json()
+
+    discord_id = str(discord_user.get("id"))
+    discord_username = discord_user.get("username", "")
+    discord_avatar = discord_user.get("avatar", "")
+
+    svc = _service_headers()
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        auth_email = f"discord_{discord_id}@discord.ckr.local"
+        match = await client.get(
+            f"{SUPABASE_URL}/rest/v1/profiles",
+            params={"email": f"eq.{auth_email}", "select": "*"},
+            headers={**svc, "Accept": "application/json"},
+        )
+        existing = match.json()[0] if match.status_code == 200 and match.json() else None
+
+        if existing:
+            uid = existing["id"]
+            temp_pass = os.urandom(32).hex()
+            pw_resp = await client.put(
+                f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
+                headers=svc,
+                json={"password": temp_pass},
+            )
+            if pw_resp.status_code not in (200, 204):
+                raise HTTPException(status_code=500, detail=f"pw_update_fail:{pw_resp.status_code}")
+        else:
+            temp_pass = os.urandom(32).hex()
+            cr = await client.post(
+                f"{SUPABASE_URL}/auth/v1/admin/users",
+                headers=svc,
+                json={
+                    "email": auth_email,
+                    "password": temp_pass,
+                    "email_confirm": True,
+                    "user_metadata": {"username": discord_username, "display_name": discord_username},
                 },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
-            if token_resp.status_code != 200:
-                return _home("discord_token_fail")
-            token_data = token_resp.json()
-            discord_token = token_data.get("access_token")
-
-            user_resp = await client.get(
-                "https://discord.com/api/users/@me",
-                headers={"Authorization": f"Bearer {discord_token}"},
-            )
-            if user_resp.status_code != 200:
-                return _home("discord_user_fail")
-            discord_user = user_resp.json()
-
-        discord_id = str(discord_user.get("id"))
-        discord_username = discord_user.get("username", "")
-        discord_avatar = discord_user.get("avatar", "")
-
-        svc = _service_headers()
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            auth_email = f"discord_{discord_id}@discord.ckr.local"
-            match = await client.get(
-                f"{SUPABASE_URL}/rest/v1/profiles",
-                params={"email": f"eq.{auth_email}", "select": "*"},
-                headers={**svc, "Accept": "application/json"},
-            )
-            existing = match.json()[0] if match.status_code == 200 and match.json() else None
-
-            if existing:
-                uid = existing["id"]
-                temp_pass = os.urandom(32).hex()
+            if cr.status_code in (200, 201):
+                uid = cr.json().get("id")
+            elif cr.status_code == 422:
+                lu = await client.get(
+                    f"{SUPABASE_URL}/auth/v1/admin/users",
+                    headers=svc,
+                    params={"email": auth_email},
+                )
+                uid = (lu.json().get("users") or [None])[0].get("id") if lu.status_code == 200 and lu.json() else None
+                if not uid:
+                    raise HTTPException(status_code=500, detail="no_uid_422")
                 pw_resp = await client.put(
                     f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
                     headers=svc,
                     json={"password": temp_pass},
                 )
                 if pw_resp.status_code not in (200, 204):
-                    return _home(f"pw_update_fail:{pw_resp.status_code}")
+                    raise HTTPException(status_code=500, detail=f"pw_update_fail:{pw_resp.status_code}")
             else:
-                temp_pass = os.urandom(32).hex()
-                cr = await client.post(
-                    f"{SUPABASE_URL}/auth/v1/admin/users",
-                    headers=svc,
-                    json={
-                        "email": auth_email,
-                        "password": temp_pass,
-                        "email_confirm": True,
-                        "user_metadata": {"username": discord_username, "display_name": discord_username},
-                    },
-                )
-                if cr.status_code in (200, 201):
-                    uid = cr.json().get("id")
-                elif cr.status_code == 422:
-                    lu = await client.get(
-                        f"{SUPABASE_URL}/auth/v1/admin/users",
-                        headers=svc,
-                        params={"email": auth_email},
-                    )
-                    uid = (lu.json().get("users") or [None])[0].get("id") if lu.status_code == 200 and lu.json() else None
-                    if not uid:
-                        return _home("no_uid_422")
-                    pw_resp = await client.put(
-                        f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
-                        headers=svc,
-                        json={"password": temp_pass},
-                    )
-                    if pw_resp.status_code not in (200, 204):
-                        return _home(f"pw_update_fail:{pw_resp.status_code}")
-                else:
-                    return _home("create_user_fail")
-                if not uid:
-                    return _home("no_uid")
+                raise HTTPException(status_code=500, detail="create_user_fail")
+            if not uid:
+                raise HTTPException(status_code=500, detail="no_uid")
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            sign = await client.post(
-                f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
-                headers=_sb_headers(SUPABASE_ANON_KEY),
-                json={"email": auth_email, "password": temp_pass},
-            )
-            if sign.status_code != 200:
-                body_text = sign.text[:500]
-                return _home(f"sign_in_fail:{sign.status_code}:{body_text}")
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        sign = await client.post(
+            f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
+            headers=_sb_headers(SUPABASE_ANON_KEY),
+            json={"email": auth_email, "password": temp_pass},
+        )
+        if sign.status_code != 200:
+            raise HTTPException(status_code=401, detail="discord_login_failed")
+        session = sign.json()
 
-            session = sign.json()
+    profile_out = {
+        "id": uid,
+        "role": existing.get("role", "normal") if existing else "normal",
+        "username": discord_username,
+        "display_name": discord_username,
+        "token_balance": existing.get("token_balance", 0) if existing else 0,
+    }
 
-        profile_out = {
-            "id": uid,
-            "role": existing.get("role", "normal") if existing else "normal",
-            "username": discord_username,
-            "display_name": discord_username,
-            "token_balance": existing.get("token_balance", 0) if existing else 0,
-        }
+    token_data = {
+        "ok": True,
+        "access_token": session.get("access_token"),
+        "refresh_token": session.get("refresh_token"),
+        "expires_in": session.get("expires_in"),
+        "token_type": session.get("token_type", "bearer"),
+        "user": {"id": uid, "username": discord_username},
+        "profile": profile_out,
+    }
 
-        access_token_str = session.get("access_token", "")
-        redirect_url = f"https://devd-z.github.io/CKR-WWDC/#access_token={access_token_str}"
+    html_page = f"""<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><script>
+const data = {json.dumps(token_data)};
+localStorage.setItem("ckr_token", data.access_token);
+localStorage.setItem("ckr_profile", JSON.stringify(data.profile));
+window.location.href = "https://devd-z.github.io/CKR-WWDC/";
+</script></head><body><p>Signing in... redirecting to dashboard.</p></body></html>"""
 
-        html_page = f"""<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url={redirect_url}"></head><body><p>Signing in... redirecting to dashboard.</p></body></html>"""
-
-        return HTMLResponse(content=html_page, status_code=200)
-    except Exception as exc:
-        return _home(f"exception:{type(exc).__name__}")
+    return HTMLResponse(content=html_page, status_code=200)
 
 
 def _svc():
@@ -745,27 +743,12 @@ async def farm_redeem_voucher(
     except (ValueError, TypeError):
         amount_baht = 0
 
-    if not _has_service_role():
-        raise HTTPException(status_code=503, detail="service_role_not_configured")
-
-    # Fetch global voucher settings from admin profile
-    svc = _service_headers()
-    points_per_baht = 1
-    voucher_phone = "0644718725"
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        ar = await client.get(
-            f"{SUPABASE_URL}/rest/v1/profiles",
-            params={"role": "eq.admin", "select": "voucher_phone,points_per_baht", "limit": "1"},
-            headers={**svc, "Accept": "application/json"},
-        )
-        if ar.status_code == 200 and ar.json():
-            admin_row = ar.json()[0]
-            voucher_phone = admin_row.get("voucher_phone", "0644718725")
-            points_per_baht = int(admin_row.get("points_per_baht", 1))
-
-    tokens = amount_baht * points_per_baht
+    tokens = amount_baht
     if tokens <= 0:
         raise HTTPException(status_code=400, detail=f"ยอดเงินไม่ถูกต้อง: {amount_str}")
+
+    if not _has_service_role():
+        raise HTTPException(status_code=503, detail="service_role_not_configured")
 
     async with httpx.AsyncClient(timeout=20.0) as client:
         credit = await client.post(
@@ -1180,7 +1163,7 @@ async def admin_update_user(
 @app.post("/api/admin/redeem-voucher")
 async def admin_redeem_voucher(
     body: RedeemVoucherBody,
-    user: dict[str, Any] = Depends(require_admin),
+    admin: dict[str, Any] = Depends(require_admin),
 ):
     import re as _re
     import cloudscraper
@@ -1258,63 +1241,3 @@ async def admin_redeem_voucher(
         "tokens_added": tokens,
         "voucher_hash": voucher_hash,
     }
-
-
-class VoucherSettingsBody(BaseModel):
-    phone: str = Field(min_length=9, max_length=13, default="0644718725")
-    points_per_baht: int = Field(ge=1, le=1000, default=1)
-
-
-@app.get("/api/admin/voucher-settings")
-async def get_voucher_settings(
-    user: dict[str, Any] = Depends(require_admin),
-):
-    if not _has_service_role():
-        raise HTTPException(status_code=503, detail="service_role_not_configured")
-    uid = user["id"]
-    svc = _service_headers()
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        r = await client.get(
-            f"{SUPABASE_URL}/rest/v1/profiles",
-            params={"id": f"eq.{uid}", "select": "voucher_phone,points_per_baht"},
-            headers={**svc, "Accept": "application/json"},
-        )
-        if r.status_code == 200 and r.json():
-            row = r.json()[0]
-            return {"ok": True, "phone": row.get("voucher_phone", "0644718725"), "points_per_baht": row.get("points_per_baht", 1)}
-        # Columns may not exist yet — try full select and return defaults
-        try:
-            r2 = await client.get(
-                f"{SUPABASE_URL}/rest/v1/profiles",
-                params={"id": f"eq.{uid}", "select": "*"},
-                headers={**svc, "Accept": "application/json"},
-            )
-        except Exception:
-            pass
-        return {"ok": True, "phone": "0644718725", "points_per_baht": 1}
-
-
-@app.post("/api/admin/voucher-settings")
-async def set_voucher_settings(
-    body: VoucherSettingsBody,
-    user: dict[str, Any] = Depends(require_admin),
-):
-    if not _has_service_role():
-        raise HTTPException(status_code=503, detail="service_role_not_configured")
-    uid = user["id"]
-    svc = _service_headers()
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        r = await client.patch(
-            f"{SUPABASE_URL}/rest/v1/profiles",
-            params={"id": f"eq.{uid}"},
-            headers=svc,
-            json={"voucher_phone": body.phone.strip(), "points_per_baht": body.points_per_baht},
-        )
-        if r.status_code not in (200, 204):
-<<<<<<< HEAD
-=======
-            if "Could not find the" in r.text:
-                return {"ok": True, "phone": body.phone.strip(), "points_per_baht": body.points_per_baht, "note": "schema_migration_needed"}
->>>>>>> b79e932 (fix discord callback: match profiles by email (discord_id column missing); add pw-update status check in 422 branch)
-            raise HTTPException(status_code=500, detail=r.text)
-    return {"ok": True, "phone": body.phone.strip(), "points_per_baht": body.points_per_baht}
