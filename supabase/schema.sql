@@ -440,7 +440,7 @@ insert into public.farm_lock (id) values (1) on conflict (id) do nothing;
 create table if not exists public.pending_payments (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
-  amount_baht integer not null check (amount_baht >= 10),
+  amount_baht integer not null check (amount_baht >= 15),
   tokens integer not null default 0,
   ref text not null,
   status text not null default 'pending' check (status in ('pending', 'confirmed', 'expired', 'cancelled')),

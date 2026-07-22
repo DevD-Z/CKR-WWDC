@@ -783,7 +783,7 @@ CALLBACK_BASE = os.environ.get("CALLBACK_BASE", "https://ckr-wwdc-x0pe.onrender.
 
 
 class CreatePaymentBody(BaseModel):
-    amount: int = Field(ge=10, le=10000)
+    amount: int = Field(ge=15, le=10000)
 
 
 class PaymentCallbackBody(BaseModel):

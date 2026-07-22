@@ -1462,8 +1462,8 @@
 
   $("pp-generate-btn")?.addEventListener("click", async () => {
     const amount = parseInt($("pp-amount")?.value || "0", 10);
-    if (amount < 10 || amount > 10000) {
-      setStatus($("pp-status"), "Amount must be 10–10,000 THB", "err");
+    if (amount < 15 || amount > 10000) {
+      setStatus($("pp-status"), "Amount must be 15–10,000 THB", "err");
       return;
     }
     const btn = $("pp-generate-btn");
