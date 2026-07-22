@@ -386,7 +386,7 @@
     // Voucher settings
     async function loadVoucherSettings() {
       try {
-        const data = await api('GET', '/api/admin/voucher-settings');
+        const data = await api('/api/admin/voucher-settings');
         if (data.ok) {
           $('vs-phone').value = data.phone || '0644718725';
           $('vs-points').value = data.points_per_baht || 1;
@@ -400,9 +400,12 @@
       btn.disabled = true;
       status(st, 'Saving...', 'load');
       try {
-        const data = await api('POST', '/api/admin/voucher-settings', {
-          phone: $('vs-phone').value.trim(),
-          points_per_baht: parseInt($('vs-points').value) || 1
+        const data = await api('/api/admin/voucher-settings', {
+          method: 'POST',
+          body: {
+            phone: $('vs-phone').value.trim(),
+            points_per_baht: parseInt($('vs-points').value) || 1
+          }
         });
         status(st, 'Saved: phone=' + data.phone + ', ' + data.points_per_baht + ' pt/baht', 'ok');
       } catch (e) {
