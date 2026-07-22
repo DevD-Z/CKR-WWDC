@@ -21,3 +21,9 @@ services:
         sync: false
       - key: DISCORD_REDIRECT_URI
         value: https://ckr-wwdc-x0pe.onrender.com/api/auth/discord/callback
+      - key: PROMPTPAY_NUMBER
+        sync: false
+      - key: SLIPOK_API_KEY
+        sync: false
+      - key: POINTS_PER_BAHT_PROMPTPAY
+        value: "1"
