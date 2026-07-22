@@ -444,6 +444,11 @@ async def discord_callback(code: str):
             )
             if cr.status_code in (200, 201):
                 uid = cr.json().get("id")
+                await client.post(
+                    f"{SUPABASE_URL}/rest/v1/rpc/admin_credit_tokens",
+                    headers=svc,
+                    json={"p_user_id": uid, "p_amount": 3, "p_reason": "new_discord_user"},
+                )
             elif cr.status_code == 422:
                 lu = await client.get(
                     f"{SUPABASE_URL}/auth/v1/admin/users",
