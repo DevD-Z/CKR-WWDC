@@ -1311,10 +1311,7 @@ async def set_voucher_settings(
             json={"voucher_phone": body.phone.strip(), "points_per_baht": body.points_per_baht},
         )
         if r.status_code not in (200, 204):
-<<<<<<< HEAD
-=======
             if "Could not find the" in r.text:
                 return {"ok": True, "phone": body.phone.strip(), "points_per_baht": body.points_per_baht, "note": "schema_migration_needed"}
->>>>>>> b79e932 (fix discord callback: match profiles by email (discord_id column missing); add pw-update status check in 422 branch)
             raise HTTPException(status_code=500, detail=r.text)
     return {"ok": True, "phone": body.phone.strip(), "points_per_baht": body.points_per_baht}
