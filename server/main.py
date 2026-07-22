@@ -441,11 +441,13 @@ async def discord_callback(code: str):
                     json={"discord_username": discord_username, "discord_avatar": discord_avatar},
                 )
                 temp_pass = os.urandom(32).hex()
-                await client.put(
+                pw_resp = await client.put(
                     f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
                     headers=svc,
                     json={"password": temp_pass},
                 )
+                if pw_resp.status_code not in (200, 204):
+                    return _home(f"pw_update_fail:{pw_resp.status_code}")
             else:
                 auth_email = f"discord_{discord_id}@discord.ckr.local"
                 temp_pass = os.urandom(32).hex()
@@ -502,7 +504,8 @@ async def discord_callback(code: str):
                 json={"email": auth_email, "password": temp_pass},
             )
             if sign.status_code != 200:
-                return _home("sign_in_fail")
+                body_text = sign.text[:200]
+                return _home(f"sign_in_fail:{sign.status_code}:{body_text}")
 
             session = sign.json()
 
