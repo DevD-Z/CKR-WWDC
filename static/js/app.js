@@ -1205,9 +1205,9 @@
       try {
         const params = new URLSearchParams(hash.slice(1));
         const t = params.get("access_token");
-        const p = params.get("profile");
-        if (t) localStorage.setItem("ckr_token", t);
-        if (p) localStorage.setItem("ckr_profile", p);
+        if (t) {
+          localStorage.setItem("ckr_token", t);
+        }
         window.location.hash = "";
         window.history.replaceState(null, "", window.location.pathname);
       } catch (_) {}
