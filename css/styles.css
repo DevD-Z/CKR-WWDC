@@ -710,7 +710,8 @@ input {
     0 8px 16px rgba(14, 165, 233, 0.25);
 }
 
-.btn-telegram {
+.btn-telegram,
+.btn-discord {
   width: 100%;
   background: linear-gradient(180deg, #54a9eb 0%, #2aabee 45%, #229ed9 100%);
   color: #fff;
