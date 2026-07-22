@@ -396,7 +396,8 @@ async def discord_callback(code: str):
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         if token_resp.status_code != 200:
-            raise HTTPException(status_code=400, detail="discord_token_exchange_failed")
+            body = token_resp.text[:300]
+            raise HTTPException(status_code=400, detail=f"discord_token_exchange_failed: {token_resp.status_code} {body}")
         token_data = token_resp.json()
         discord_token = token_data.get("access_token")
 
