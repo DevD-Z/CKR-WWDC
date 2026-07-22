@@ -1199,6 +1199,20 @@
 
   /* ---------- Auth bootstrap ---------- */
   async function bootstrap() {
+    // Check URL hash for Discord OAuth token
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token=")) {
+      try {
+        const params = new URLSearchParams(hash.slice(1));
+        const t = params.get("access_token");
+        const p = params.get("profile");
+        if (t) localStorage.setItem("ckr_token", t);
+        if (p) localStorage.setItem("ckr_profile", p);
+        window.location.hash = "";
+        window.history.replaceState(null, "", window.location.pathname);
+      } catch (_) {}
+    }
+
     setupDevPlayAutofillGuards();
     setupFarmNumberInputs();
     setupXpCalculator();
