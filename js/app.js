@@ -321,7 +321,7 @@
     } else {
       modalBody.textContent = body || "";
     }
-    modalIcon.src = icon || "assets/coin.png";
+    modalIcon.src = icon || "assets/znight.png";
     modalRoot.classList.toggle("locked", !!locked);
     modalRoot.classList.remove("hidden");
     modalRoot.setAttribute("aria-hidden", "false");
@@ -352,13 +352,13 @@
       mode: "empty",
       title: "coins หมด กรุณาเติม",
       body: "โทเค็นหมดแล้ว ไม่สามารถวิ่งฟาร์มได้ จนกว่าจะเติมโทเค็นผ่านแอดมิน",
-      icon: "assets/coin.png",
+      icon: "assets/znight.png",
       locked: true,
     });
     modalActions.appendChild(
       makeBtn("ติดต่อแอดมินทาง Telegram", "btn-telegram", null, {
         href: TELEGRAM_URL,
-        icon: "assets/telegram.png",
+        icon: "assets/znight.png",
       })
     );
     modalActions.appendChild(
@@ -385,7 +385,7 @@
       mode: "error",
       title: title || "เกิดข้อผิดพลาด",
       body: message,
-      icon: "assets/notice_b19.png",
+      icon: "assets/znight.png",
       locked: false,
     });
     modalActions.appendChild(
@@ -422,7 +422,7 @@
       mode: "result",
       title: "สรุปผลการฟาร์ม",
       bodyHtml: html,
-      icon: "assets/coin.png",
+      icon: "assets/znight.png",
       locked: false,
     });
     modalActions.appendChild(
@@ -514,7 +514,7 @@
       mode: "queue",
       title: waking ? "กำลังเชื่อมต่อเซิร์ฟเวอร์" : "คิวฟาร์ม",
       bodyHtml,
-      icon: "assets/tr_event_116.png",
+      icon: "assets/znight.png",
       locked: true,
     });
 
@@ -618,7 +618,7 @@
         mode: "confirm",
         title: "ยืนยันการวิ่งฟาร์ม?",
         body: "เมื่อกดยืนยัน จะหัก 1 โทเค็นทันที แม้ฟาร์มไม่สำเร็จ",
-        icon: "assets/tr_event_116.png",
+        icon: "assets/znight.png",
         locked: false,
       });
       modalActions.classList.add("row");
