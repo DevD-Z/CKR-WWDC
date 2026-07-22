@@ -40,6 +40,9 @@ DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
 DISCORD_REDIRECT_URI = os.environ.get("DISCORD_REDIRECT_URI", "https://ckr-wwdc-x0pe.onrender.com/api/auth/discord/callback")
 
+print("[boot] SUPABASE_URL set:", bool(SUPABASE_URL))
+print("[boot] DISCORD_CLIENT_ID set:", bool(DISCORD_CLIENT_ID))
+
 # Sequential farm queue (Render Free = single instance)
 _farm_lock = threading.Lock()
 _farm_busy = False
