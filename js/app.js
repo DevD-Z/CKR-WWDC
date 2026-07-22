@@ -1236,10 +1236,6 @@
       accessToken = discordToken;
       try {
         await refreshMe();
-        const me = await api("/api/me");
-        profile = me.profile;
-        paintProfile();
-        showApp();
         return;
       } catch (e) {
         localStorage.removeItem("ckr_token");
