@@ -376,150 +376,151 @@ async def discord_auth():
 
 @app.get("/api/auth/discord/callback")
 async def discord_callback(code: str):
-    _redirect_home = lambda: HTMLResponse(
-        content='<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=https://devd-z.github.io/CKR-WWDC/"></head><body><p>Redirecting...</p></body></html>',
-        status_code=200,
-    )
+    def _home():
+        return HTMLResponse(
+            content='<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=https://devd-z.github.io/CKR-WWDC/"></head><body><p>Redirecting...</p></body></html>',
+            status_code=200,
+        )
     try:
         if not DISCORD_CLIENT_ID or not DISCORD_CLIENT_SECRET:
-            return _redirect_home()
+            return _home()
         if not code:
-            return _redirect_home()
+            return _home()
         if not _has_service_role():
-            return _redirect_home()
-    except Exception:
-        return _redirect_home()
+            return _home()
 
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        token_resp = await client.post(
-            "https://discord.com/api/oauth2/token",
-            data={
-                "client_id": DISCORD_CLIENT_ID,
-                "client_secret": DISCORD_CLIENT_SECRET,
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": DISCORD_REDIRECT_URI,
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        if token_resp.status_code != 200:
-            return _redirect_home()
-        token_data = token_resp.json()
-        discord_token = token_data.get("access_token")
-
-        user_resp = await client.get(
-            "https://discord.com/api/users/@me",
-            headers={"Authorization": f"Bearer {discord_token}"},
-        )
-        if user_resp.status_code != 200:
-            return _redirect_home()
-        discord_user = user_resp.json()
-
-    discord_id = str(discord_user.get("id"))
-    discord_username = discord_user.get("username", "")
-    discord_avatar = discord_user.get("avatar", "")
-
-    svc = _service_headers()
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        match = await client.get(
-            f"{SUPABASE_URL}/rest/v1/profiles",
-            params={"discord_id": f"eq.{discord_id}", "select": "*"},
-            headers={**svc, "Accept": "application/json"},
-        )
-        existing = match.json()[0] if match.status_code == 200 and match.json() else None
-
-        if existing:
-            uid = existing["id"]
-            auth_email = existing.get("email")
-            if not auth_email:
-                return _redirect_home()
-            await client.patch(
-                f"{SUPABASE_URL}/rest/v1/profiles",
-                params={"id": f"eq.{uid}"},
-                headers=svc,
-                json={"discord_username": discord_username, "discord_avatar": discord_avatar},
-            )
-            temp_pass = os.urandom(32).hex()
-            await client.put(
-                f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
-                headers=svc,
-                json={"password": temp_pass},
-            )
-        else:
-            auth_email = f"discord_{discord_id}@discord.ckr.local"
-            temp_pass = os.urandom(32).hex()
-            cr = await client.post(
-                f"{SUPABASE_URL}/auth/v1/admin/users",
-                headers=svc,
-                json={
-                    "email": auth_email,
-                    "password": temp_pass,
-                    "email_confirm": True,
-                    "user_metadata": {"username": discord_username, "display_name": discord_username},
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            token_resp = await client.post(
+                "https://discord.com/api/oauth2/token",
+                data={
+                    "client_id": DISCORD_CLIENT_ID,
+                    "client_secret": DISCORD_CLIENT_SECRET,
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": DISCORD_REDIRECT_URI,
                 },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
-            if cr.status_code in (200, 201):
-                uid = cr.json().get("id")
-            elif cr.status_code == 422:
-                lu = await client.get(
-                    f"{SUPABASE_URL}/auth/v1/admin/users",
+            if token_resp.status_code != 200:
+                return _home()
+            token_data = token_resp.json()
+            discord_token = token_data.get("access_token")
+
+            user_resp = await client.get(
+                "https://discord.com/api/users/@me",
+                headers={"Authorization": f"Bearer {discord_token}"},
+            )
+            if user_resp.status_code != 200:
+                return _home()
+            discord_user = user_resp.json()
+
+        discord_id = str(discord_user.get("id"))
+        discord_username = discord_user.get("username", "")
+        discord_avatar = discord_user.get("avatar", "")
+
+        svc = _service_headers()
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            match = await client.get(
+                f"{SUPABASE_URL}/rest/v1/profiles",
+                params={"discord_id": f"eq.{discord_id}", "select": "*"},
+                headers={**svc, "Accept": "application/json"},
+            )
+            existing = match.json()[0] if match.status_code == 200 and match.json() else None
+
+            if existing:
+                uid = existing["id"]
+                auth_email = existing.get("email")
+                if not auth_email:
+                    return _home()
+                await client.patch(
+                    f"{SUPABASE_URL}/rest/v1/profiles",
+                    params={"id": f"eq.{uid}"},
                     headers=svc,
-                    params={"email": auth_email},
+                    json={"discord_username": discord_username, "discord_avatar": discord_avatar},
                 )
-                uid = (lu.json() or [None])[0].get("id") if lu.status_code == 200 and lu.json() else None
-                if not uid:
-                    return _redirect_home()
+                temp_pass = os.urandom(32).hex()
                 await client.put(
                     f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
                     headers=svc,
                     json={"password": temp_pass},
                 )
             else:
-                return _redirect_home()
-            if not uid:
-                return _redirect_home()
-            await client.patch(
-                f"{SUPABASE_URL}/rest/v1/profiles",
-                params={"id": f"eq.{uid}"},
-                headers={**svc, "Prefer": "return=representation"},
-                json={
-                    "email": auth_email,
-                    "username": discord_username,
-                    "display_name": discord_username,
-                    "role": "normal",
-                    "token_balance": 0,
-                    "discord_id": discord_id,
-                    "discord_username": discord_username,
-                    "discord_avatar": discord_avatar,
-                },
+                auth_email = f"discord_{discord_id}@discord.ckr.local"
+                temp_pass = os.urandom(32).hex()
+                cr = await client.post(
+                    f"{SUPABASE_URL}/auth/v1/admin/users",
+                    headers=svc,
+                    json={
+                        "email": auth_email,
+                        "password": temp_pass,
+                        "email_confirm": True,
+                        "user_metadata": {"username": discord_username, "display_name": discord_username},
+                    },
+                )
+                if cr.status_code in (200, 201):
+                    uid = cr.json().get("id")
+                elif cr.status_code == 422:
+                    lu = await client.get(
+                        f"{SUPABASE_URL}/auth/v1/admin/users",
+                        headers=svc,
+                        params={"email": auth_email},
+                    )
+                    uid = (lu.json() or [None])[0].get("id") if lu.status_code == 200 and lu.json() else None
+                    if not uid:
+                        return _home()
+                    await client.put(
+                        f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
+                        headers=svc,
+                        json={"password": temp_pass},
+                    )
+                else:
+                    return _home()
+                if not uid:
+                    return _home()
+                await client.patch(
+                    f"{SUPABASE_URL}/rest/v1/profiles",
+                    params={"id": f"eq.{uid}"},
+                    headers={**svc, "Prefer": "return=representation"},
+                    json={
+                        "email": auth_email,
+                        "username": discord_username,
+                        "display_name": discord_username,
+                        "role": "normal",
+                        "token_balance": 0,
+                        "discord_id": discord_id,
+                        "discord_username": discord_username,
+                        "discord_avatar": discord_avatar,
+                    },
+                )
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            sign = await client.post(
+                f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
+                headers=_sb_headers(SUPABASE_ANON_KEY),
+                json={"email": auth_email, "password": temp_pass},
             )
+            if sign.status_code != 200:
+                return _home()
+            session = sign.json()
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        sign = await client.post(
-            f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
-            headers=_sb_headers(SUPABASE_ANON_KEY),
-            json={"email": auth_email, "password": temp_pass},
-        )
-        if sign.status_code != 200:
-            return _redirect_home()
-        session = sign.json()
+        profile_out = {
+            "id": uid,
+            "role": existing.get("role", "normal") if existing else "normal",
+            "username": discord_username,
+            "display_name": discord_username,
+            "token_balance": existing.get("token_balance", 0) if existing else 0,
+        }
 
-    profile_out = {
-        "id": uid,
-        "role": existing.get("role", "normal") if existing else "normal",
-        "username": discord_username,
-        "display_name": discord_username,
-        "token_balance": existing.get("token_balance", 0) if existing else 0,
-    }
+        access_token_str = session.get("access_token", "")
+        profile_json = json.dumps(profile_out)
+        redirect_url = f"https://devd-z.github.io/CKR-WWDC/#access_token={access_token_str}&profile={quote(profile_json)}"
 
-    access_token_str = session.get("access_token", "")
-    profile_json = json.dumps(profile_out)
-    redirect_url = f"https://devd-z.github.io/CKR-WWDC/#access_token={access_token_str}&profile={quote(profile_json)}"
+        html_page = f"""<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url={redirect_url}"></head><body><p>Signing in... redirecting to dashboard.</p></body></html>"""
 
-    html_page = f"""<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url={redirect_url}"></head><body><p>Signing in... redirecting to dashboard.</p></body></html>"""
-
-    return HTMLResponse(content=html_page, status_code=200)
+        return HTMLResponse(content=html_page, status_code=200)
+    except Exception:
+        return _home()
 
 
 def _svc():
