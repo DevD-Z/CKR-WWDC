@@ -451,6 +451,54 @@
     }, 2500);
   }
 
+  function renderQueuePanel(gate) {
+    const panel = $("queue-panel");
+    const pill = $("queue-pill");
+    const statVal = $("queue-stat-val");
+    const statSub = $("queue-stat-sub");
+    if (!panel) return;
+    const g = gate || lastGate || {};
+    const me = g.me || {};
+    const count = g.queue_length ?? 0;
+    if (me.status === "active" || g.is_my_turn) {
+      const left = turnCountdownText(me.turn_expires_at);
+      panel.innerHTML =
+        '<div style="display:flex;flex-direction:column;gap:6px;width:100%">' +
+        '<div style="display:flex;justify-content:space-between"><span style="color:#64748b">Status</span><strong style="color:#22d3ee">Your turn</strong></div>' +
+        '<div style="display:flex;justify-content:space-between"><span style="color:#64748b">Time left</span><strong>' + escapeHtml(left || "2:00") + "</strong></div>" +
+        '<div style="display:flex;justify-content:space-between"><span style="color:#64748b">In queue</span><strong>' + count + "</strong></div>" +
+        "</div>";
+      if (pill) { pill.textContent = "Your turn"; pill.style.background = "#22d3ee"; pill.style.color = "#0f172a"; }
+      if (statVal) statVal.textContent = "Your turn";
+      if (statSub) statSub.textContent = count + " in queue";
+    } else if (me.status === "waiting") {
+      const pos = me.position ?? "—";
+      panel.innerHTML =
+        '<div style="display:flex;flex-direction:column;gap:6px;width:100%">' +
+        '<div style="display:flex;justify-content:space-between"><span style="color:#64748b">Your position</span><strong>' + escapeHtml(String(pos)) + "</strong></div>" +
+        '<div style="display:flex;justify-content:space-between"><span style="color:#64748b">In queue</span><strong>' + count + "</strong></div>" +
+        '<p style="margin:4px 0 0;font-size:0.75rem;color:#64748b">Keep this page open</p>' +
+        "</div>";
+      if (pill) { pill.textContent = "In queue"; pill.style.background = "#fbbf24"; pill.style.color = "#0f172a"; }
+      if (statVal) statVal.textContent = "Position " + pos;
+      if (statSub) statSub.textContent = count + " in queue";
+    } else if (g.farm_busy) {
+      panel.innerHTML =
+        '<div style="display:flex;flex-direction:column;gap:6px;width:100%">' +
+        '<div style="display:flex;justify-content:space-between"><span style="color:#64748b">Status</span><strong style="color:#f87171">Farming in progress</strong></div>' +
+        '<div style="display:flex;justify-content:space-between"><span style="color:#64748b">In queue</span><strong>' + count + "</strong></div>" +
+        "</div>";
+      if (pill) { pill.textContent = count + " waiting"; pill.style.background = "#f87171"; pill.style.color = "#fff"; }
+      if (statVal) statVal.textContent = "Farming";
+      if (statSub) statSub.textContent = count + " waiting";
+    } else {
+      panel.innerHTML = '<div style="color:#22d3ee;display:flex;align-items:center;gap:6px"><span class="queue-spinner" aria-hidden="true" style="width:12px;height:12px;border:2px solid #22d3ee;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> Queue idle — start farming anytime</div>';
+      if (pill) { pill.textContent = "Idle"; pill.style.background = "#22d3ee66"; pill.style.color = "#22d3ee"; }
+      if (statVal) statVal.textContent = "Idle";
+      if (statSub) statSub.textContent = "No active queue";
+    }
+  }
+
   function turnCountdownText(iso) {
     if (!iso) return "";
     const end = Date.parse(iso);
@@ -546,6 +594,7 @@
     try {
       const data = await api("/api/farm/gate");
       lastGate = data;
+      renderQueuePanel(data);
       if (data.is_my_turn || data.me?.status === "waiting" || data.me?.status === "active") {
         renderQueueModal(data);
         startQueuePoll();
