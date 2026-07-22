@@ -377,7 +377,7 @@ async def discord_auth():
 @app.get("/api/auth/discord/callback")
 async def discord_callback(code: str):
     def _home(reason: str = ""):
-        suffix = f"#discord_error={reason}" if reason else ""
+        suffix = f"#discord_error={quote(reason)}" if reason else ""
         return HTMLResponse(
             content=f'<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><meta http-equiv="refresh" content="0;url=https://devd-z.github.io/CKR-WWDC/{suffix}"></head><body><p>Redirecting...</p></body></html>',
             status_code=200,
@@ -504,7 +504,7 @@ async def discord_callback(code: str):
                 json={"email": auth_email, "password": temp_pass},
             )
             if sign.status_code != 200:
-                body_text = sign.text[:200]
+                body_text = sign.text[:500]
                 return _home(f"sign_in_fail:{sign.status_code}:{body_text}")
 
             session = sign.json()
