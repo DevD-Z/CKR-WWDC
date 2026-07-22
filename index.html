@@ -26,6 +26,15 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .topbar-stats { display: flex; align-items: center; gap: 8px; }
+    .pp-amounts { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .pp-amt-btn { flex: 1; min-width: 50px; padding: 10px 8px; border-radius: 10px; border: 1px solid rgba(148,163,184,0.15); background: rgba(30,41,59,0.8); color: #94a3b8; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.15s; text-align: center; }
+    .pp-amt-btn:hover { border-color: rgba(14,165,233,0.3); color: #f1f5f9; }
+    .pp-amt-btn.active { border-color: #22d3ee; background: rgba(34,211,238,0.1); color: #22d3ee; }
+    .pp-qr-area { margin-top: 16px; }
+    .pp-qr-box { display: flex; flex-direction: column; align-items: center; padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(148,163,184,0.1); }
+    .pp-qr-img { width: 200px; height: 200px; border-radius: 10px; image-rendering: pixelated; }
+    .pp-qr-box p { text-align: center; }
+    @media (max-width: 480px) { .pp-amt-btn { min-width: 40px; padding: 8px 4px; font-size: 0.85rem; } .pp-qr-img { width: 160px; height: 160px; } }
     .topbar-stat { font-size: 0.75rem; padding: 4px 10px; border-radius: 999px; background: rgba(30,41,59,0.8); border: 1px solid rgba(148,163,184,0.1); color: #94a3b8; white-space: nowrap; }
     .topbar-stat-srv { color: #22d3ee; border-color: rgba(34,211,238,0.2); }
     .topbar-profile { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 999px; background: rgba(30,41,59,0.8); border: 1px solid rgba(148,163,184,0.1); }
@@ -189,25 +198,84 @@
       </div>
 
       <div id="tab-topup" class="tab-content">
-        <div class="panel" style="max-width:500px;margin:0 auto">
-          <div class="oven-head">
-            <div class="oven-titles">
-              <img src="assets/icon_giftpoint.png" alt="" width="28" height="28" />
-              <div>
-                <h2 class="panel-title" style="font-size:1.2rem">Redeem Voucher</h2>
-                <p class="panel-hint">TrueMoney Wallet — 1 baht = N tokens</p>
+        <div class="dash-layout">
+          <div class="panel">
+            <div class="oven-head">
+              <div class="oven-titles">
+                <img src="assets/boost16_shop.png" alt="" width="28" height="28" />
+                <div>
+                  <h2 class="panel-title" style="font-size:1.2rem">PromptPay</h2>
+                  <p class="panel-hint">Top up with PromptPay</p>
+                </div>
+              </div>
+            </div>
+            <p style="font-size:0.85rem;color:#94a3b8;margin:0 0 12px">Select amount or enter custom</p>
+            <div class="pp-amounts" id="pp-amounts">
+              <button class="pp-amt-btn" data-amt="30">30</button>
+              <button class="pp-amt-btn" data-amt="50">50</button>
+              <button class="pp-amt-btn" data-amt="100">100</button>
+              <button class="pp-amt-btn" data-amt="200">200</button>
+              <button class="pp-amt-btn" data-amt="500">500</button>
+            </div>
+            <label class="field">
+              <span>Custom amount (THB)</span>
+              <input type="number" id="pp-amount" min="10" max="10000" value="100" />
+            </label>
+            <button class="btn btn-run" id="pp-generate-btn" style="width:100%">
+              <img src="assets/notice_b20.png" alt="" width="20" height="20" />
+              Generate QR Code
+            </button>
+            <div id="pp-qr-area" class="pp-qr-area hidden" hidden>
+              <div class="pp-qr-box">
+                <img id="pp-qr-img" class="pp-qr-img" src="" alt="PromptPay QR" />
+                <p id="pp-qr-amount" style="font-size:0.9rem;font-weight:600;color:#f1f5f9;margin:4px 0 0"></p>
+                <p id="pp-qr-ref" style="font-size:0.75rem;color:#64748b;margin:2px 0 0"></p>
+              </div>
+              <p id="pp-status" class="status" role="status"></p>
+              <div id="pp-verify-area" class="hidden" hidden>
+                <button class="btn btn-candy" id="pp-verify-btn" style="width:100%;margin-top:8px">
+                  I've Paid — Verify
+                </button>
               </div>
             </div>
           </div>
-          <div id="voucher-status" class="status"></div>
-          <label class="field">
-            <span>Voucher URL</span>
-            <input type="url" id="voucher-url" placeholder="https://gift.truemoney.com/campaign/?v=..." />
-          </label>
-          <button class="btn btn-candy" id="voucher-btn" style="width:100%">
-            <img src="assets/boost16_shop.png" alt="" width="20" height="20" />
-            Redeem & Add Tokens
-          </button>
+          <div>
+            <div class="panel" style="margin-bottom:16px">
+              <div class="oven-head">
+                <div class="oven-titles">
+                  <img src="assets/icon_giftpoint.png" alt="" width="28" height="28" />
+                  <div>
+                    <h2 class="panel-title" style="font-size:1.2rem">Redeem Voucher</h2>
+                    <p class="panel-hint">TrueMoney Wallet</p>
+                  </div>
+                </div>
+              </div>
+              <div id="voucher-status" class="status"></div>
+              <label class="field">
+                <span>Voucher URL</span>
+                <input type="url" id="voucher-url" placeholder="https://gift.truemoney.com/campaign/?v=..." />
+              </label>
+              <button class="btn btn-candy" id="voucher-btn" style="width:100%">
+                <img src="assets/boost16_shop.png" alt="" width="20" height="20" />
+                Redeem & Add Tokens
+              </button>
+            </div>
+            <div class="panel">
+              <div class="oven-head">
+                <div class="oven-titles">
+                  <img src="assets/tr_ga170.png" alt="" width="28" height="28" />
+                  <div>
+                    <h2 class="panel-title" style="font-size:1.2rem">Links</h2>
+                    <p class="panel-hint">Quick resources</p>
+                  </div>
+                </div>
+              </div>
+              <a href="https://discord.gg/SabrUQ3PCh" target="_blank" rel="noopener" class="btn btn-discord" style="margin-bottom:8px">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+                Contact Admin on Discord
+              </a>
+            </div>
+          </div>
         </div>
       </div>
 

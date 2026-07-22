@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import threading
+import time
 import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -769,6 +770,153 @@ async def farm_redeem_voucher(
         "amount_baht": amount_baht,
         "tokens_added": tokens,
     }
+
+
+# ---------------------------------------------------------------------------
+# PromptPay / SlipOK payment
+# ---------------------------------------------------------------------------
+SLIPOK_API_KEY = os.environ.get("SLIPOK_API_KEY", "")
+PROMPTPAY_NUMBER = os.environ.get("PROMPTPAY_NUMBER", "0000000000")
+POINTS_PER_BAHT_PROMPTPAY = int(os.environ.get("POINTS_PER_BAHT_PROMPTPAY", "1"))
+
+
+class CreatePaymentBody(BaseModel):
+    amount: int = Field(ge=10, le=10000)
+
+
+class PaymentCallbackBody(BaseModel):
+    transactionId: str = ""
+    ref: str = ""
+    status: str = "completed"
+
+
+@app.post("/api/farm/payment/create")
+async def farm_payment_create(
+    body: CreatePaymentBody,
+    user: dict[str, Any] = Depends(verify_user),
+):
+    uid = user["id"]
+    ts = int(time.time())
+    ref = f"PP{uid[:8]}{ts % 1000000}"
+    tokens = body.amount * POINTS_PER_BAHT_PROMPTPAY
+    qr_url = f"https://promptpay.io/{PROMPTPAY_NUMBER}/{body.amount}?ref={ref}"
+
+    if not _has_service_role():
+        return {
+            "ok": True,
+            "ref": ref,
+            "qr_url": qr_url,
+            "amount_baht": body.amount,
+            "tokens": tokens,
+            "promptpay_number": PROMPTPAY_NUMBER,
+            "note": "service_role_not_configured — payment is NOT tracked",
+        }
+
+    svc = _service_headers()
+    points_per_baht = POINTS_PER_BAHT_PROMPTPAY
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        ar = await client.get(
+            f"{SUPABASE_URL}/rest/v1/profiles",
+            params={"role": "eq.admin", "select": "points_per_baht", "limit": "1"},
+            headers={**svc, "Accept": "application/json"},
+        )
+        if ar.status_code == 200 and ar.json():
+            admin_row = ar.json()[0]
+            points_per_baht = int(admin_row.get("points_per_baht", POINTS_PER_BAHT_PROMPTPAY))
+
+    tokens = body.amount * points_per_baht
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        pp = await client.post(
+            f"{SUPABASE_URL}/rest/v1/pending_payments",
+            headers=svc,
+            json={
+                "user_id": uid,
+                "amount_baht": body.amount,
+                "tokens": tokens,
+                "ref": ref,
+                "status": "pending",
+            },
+        )
+
+    return {
+        "ok": True,
+        "ref": ref,
+        "qr_url": qr_url,
+        "amount_baht": body.amount,
+        "tokens": tokens,
+        "promptpay_number": PROMPTPAY_NUMBER,
+    }
+
+
+@app.post("/api/farm/payment/callback")
+async def farm_payment_callback(
+    body: PaymentCallbackBody,
+):
+    if not body.ref:
+        raise HTTPException(status_code=400, detail="missing ref")
+    if not _has_service_role():
+        raise HTTPException(status_code=503, detail="service_role_not_configured")
+
+    svc = _service_headers()
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        q = await client.get(
+            f"{SUPABASE_URL}/rest/v1/pending_payments",
+            params={"ref": f"eq.{body.ref}", "select": "*", "limit": "1"},
+            headers={**svc, "Accept": "application/json"},
+        )
+        if q.status_code != 200 or not q.json():
+            raise HTTPException(status_code=404, detail="payment_not_found")
+        row = q.json()[0]
+        if row["status"] != "pending":
+            return {"ok": True, "status": row["status"]}
+
+        await client.patch(
+            f"{SUPABASE_URL}/rest/v1/pending_payments?id=eq.{row['id']}",
+            headers=svc,
+            json={
+                "status": "confirmed",
+                "slipok_txn_id": body.transactionId,
+                "confirmed_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        await client.post(
+            f"{SUPABASE_URL}/rest/v1/rpc/admin_credit_tokens",
+            headers=svc,
+            json={
+                "p_user_id": row["user_id"],
+                "p_amount": row["tokens"],
+                "p_reason": f"promptpay_{body.ref}",
+            },
+        )
+    return {"ok": True, "status": "confirmed"}
+
+
+@app.get("/api/farm/payment/status/{ref}")
+async def farm_payment_status(
+    ref: str,
+    user: dict[str, Any] = Depends(verify_user),
+):
+    if not _has_service_role():
+        return {"ok": True, "ref": ref, "status": "unknown", "note": "service_role_not_configured"}
+    svc = _service_headers()
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        q = await client.get(
+            f"{SUPABASE_URL}/rest/v1/pending_payments",
+            params={"ref": f"eq.{ref}", "user_id": f"eq.{user['id']}", "select": "*", "limit": "1"},
+            headers={**svc, "Accept": "application/json"},
+        )
+        if q.status_code != 200 or not q.json():
+            return {"ok": True, "ref": ref, "status": "pending"}
+        row = q.json()[0]
+        return {
+            "ok": True,
+            "ref": ref,
+            "status": row["status"],
+            "amount_baht": row["amount_baht"],
+            "tokens": row["tokens"],
+            "confirmed_at": row.get("confirmed_at"),
+        }
 
 
 def _run_farm_sync(email, password, score, coin, exp, log_cb):

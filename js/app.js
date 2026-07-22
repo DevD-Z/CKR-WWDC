@@ -1416,5 +1416,101 @@
     voucherBtn.disabled = false;
   });
 
+  // ---------- PromptPay / SlipOK ----------
+  let ppPollTimer = null;
+  let ppRef = null;
+
+  function stopPpPoll() {
+    if (ppPollTimer) { clearInterval(ppPollTimer); ppPollTimer = null; }
+  }
+
+  function startPpPoll(ref) {
+    stopPpPoll();
+    ppRef = ref;
+    ppPollTimer = setInterval(async () => {
+      if (!ref) return;
+      try {
+        const data = await api("/api/farm/payment/status/" + ref);
+        if (data.status === "confirmed") {
+          stopPpPoll();
+          setStatus($("pp-status"), "✅ Payment confirmed! Tokens credited.", "ok");
+          $("pp-verify-area")?.classList.add("hidden");
+          $("pp-verify-btn")?.remove();
+          try {
+            const me = await api("/api/me");
+            profile = me.profile;
+            paintProfile();
+          } catch (_) {}
+          return;
+        }
+        setStatus($("pp-status"), "⏳ Waiting for payment...", "load");
+      } catch (e) {
+        if (!/network/i.test(e.message)) {
+          setStatus($("pp-status"), "⏳ Checking...", "load");
+        }
+      }
+    }, 5000);
+  }
+
+  document.querySelectorAll(".pp-amt-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".pp-amt-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      $("pp-amount").value = btn.dataset.amt;
+    });
+  });
+
+  $("pp-generate-btn")?.addEventListener("click", async () => {
+    const amount = parseInt($("pp-amount")?.value || "0", 10);
+    if (amount < 10 || amount > 10000) {
+      setStatus($("pp-status"), "Amount must be 10–10,000 THB", "err");
+      return;
+    }
+    const btn = $("pp-generate-btn");
+    btn.disabled = true;
+    setStatus($("pp-status"), "Generating QR code...", "load");
+    $("pp-qr-area")?.classList.remove("hidden");
+    $("pp-verify-area")?.classList.add("hidden");
+    try {
+      const data = await api("/api/farm/payment/create", { method: "POST", body: { amount } });
+      const qrImg = $("pp-qr-img");
+      if (qrImg) qrImg.src = data.qr_url;
+      const amtEl = $("pp-qr-amount");
+      if (amtEl) amtEl.textContent = data.amount_baht + " THB = " + data.tokens + " Tokens";
+      const refEl = $("pp-qr-ref");
+      if (refEl) refEl.textContent = "Ref: " + data.ref;
+      setStatus($("pp-status"), "Scan QR with your banking app to pay", "ok");
+      $("pp-verify-area")?.classList.remove("hidden");
+      startPpPoll(data.ref);
+    } catch (e) {
+      setStatus($("pp-status"), "❌ " + e.message, "err");
+      $("pp-qr-area")?.classList.add("hidden");
+    }
+    btn.disabled = false;
+  });
+
+  $("pp-verify-btn")?.addEventListener("click", async () => {
+    if (!ppRef) return;
+    setStatus($("pp-status"), "Verifying...", "load");
+    try {
+      const data = await api("/api/farm/payment/status/" + ppRef);
+      if (data.status === "confirmed") {
+        stopPpPoll();
+        setStatus($("pp-status"), "✅ Payment confirmed! Tokens credited.", "ok");
+        $("pp-verify-area")?.classList.add("hidden");
+        $("pp-verify-btn")?.remove();
+        try {
+          const me = await api("/api/me");
+          profile = me.profile;
+          paintProfile();
+        } catch (_) {}
+      } else {
+        setStatus($("pp-status"), "⏳ Not yet paid — scan QR and pay first", "load");
+      }
+    } catch (e) {
+      setStatus($("pp-status"), "❌ " + e.message, "err");
+    }
+  });
+
   bootstrap();
 })();
