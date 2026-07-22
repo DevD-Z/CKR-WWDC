@@ -26,6 +26,12 @@
     .discord-btn { background: #5865F2; border-color: rgba(255,255,255,0.15); box-shadow: 0 6px 0 #4752c4, 0 12px 24px rgba(88,101,242,0.3); }
     .discord-btn:hover:not(:disabled) { filter: brightness(1.1); }
     .login-stage { min-height: auto; padding: 20px 0; }
+    .tab-bar { display: flex; gap: 0; margin-bottom: 20px; background: rgba(30,41,59,0.6); border-radius: 12px; padding: 4px; border: 1px solid rgba(148,163,184,0.1); }
+    .tab-btn { flex: 1; padding: 10px 16px; background: transparent; border: none; color: #64748b; font-size: 0.9rem; font-weight: 600; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
+    .tab-btn:hover { color: #94a3b8; background: rgba(255,255,255,0.03); }
+    .tab-btn.active { background: rgba(14,165,233,0.15); color: #22d3ee; box-shadow: 0 0 12px rgba(14,165,233,0.1); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
   </style>
 </head>
 <body>
@@ -101,129 +107,148 @@
         </div>
       </div>
 
-      <div class="dash-layout">
-        <div class="panel">
-          <div class="oven-head">
-            <div class="oven-titles">
-              <img src="assets/crc_cookie_stone_box.png" alt="" width="28" height="28" />
-              <div>
-                <h2 class="panel-title" style="font-size:1.2rem">Start Farm Run</h2>
-                <p class="panel-hint">Enter DevPlay account credentials</p>
-              </div>
-            </div>
-            <span class="pill" style="font-size:0.7rem">DevPlay</span>
-          </div>
-          <form id="farm-form" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true">
-            <div class="autofill-trap" aria-hidden="true">
-              <input type="text" name="username" tabindex="-1" autocomplete="username" />
-              <input type="password" name="password" tabindex="-1" autocomplete="current-password" />
-            </div>
-            <div class="grid-2">
-              <label class="field">
-                <span>DevPlay Email</span>
-                <input id="dp-acct-mail" name="ckr_dp_acct_mail" type="text" inputmode="email" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="game account email" />
-              </label>
-              <label class="field">
-                <span>DevPlay Password</span>
-                <input id="dp-acct-secret" name="ckr_dp_acct_secret" type="password" required autocomplete="new-password" data-lpignore="true" data-1p-ignore="true" placeholder="••••••••" />
-              </label>
-            </div>
-            <div class="stat-grid">
-              <label class="field field-stat">
-                <span class="field-stat-label">
-                  <span class="field-stat-name"><img src="assets/score.png" alt="" width="14" height="14" /> Score</span>
-                  <span class="field-stat-hint" id="farm-score-hint"></span>
-                </span>
-                <input id="farm-score" name="ckr_farm_score" type="text" inputmode="numeric" autocomplete="off" data-farm-num="1" value="0" />
-              </label>
-              <label class="field field-stat">
-                <span class="field-stat-label">
-                  <span class="field-stat-name"><img src="assets/coin.png" alt="" width="14" height="14" /> Coins</span>
-                  <span class="field-stat-hint" id="farm-coin-hint"></span>
-                </span>
-                <input id="farm-coin" name="ckr_farm_coin" type="text" inputmode="numeric" autocomplete="off" data-farm-num="1" value="0" />
-              </label>
-              <label class="field field-stat">
-                <span class="field-stat-label">
-                  <span class="field-stat-name"><img src="assets/level.png" alt="" width="14" height="14" /> XP</span>
-                  <span class="field-stat-hint" id="farm-exp-hint"></span>
-                </span>
-                <input id="farm-exp" name="ckr_farm_exp" type="text" inputmode="numeric" autocomplete="off" data-farm-num="1" value="0" />
-              </label>
-            </div>
-            <div class="xp-tools">
-              <button type="button" class="btn btn-ghost" id="xp-calc-open" style="width:100%;font-size:0.85rem">Calculate XP from Level</button>
-            </div>
-            <div id="xp-calc-card" class="xp-calc-card hidden" hidden>
-              <div class="xp-calc-head">
-                <h3>XP Calculator</h3>
-                <button type="button" class="xp-calc-close" id="xp-calc-close">×</button>
-              </div>
-              <p class="xp-calc-lead">Enter current and target level</p>
-              <div class="xp-calc-grid">
-                <label class="field"><span>Current Lv</span><input id="xp-cur" type="number" min="1" max="110" value="25" /></label>
-                <label class="field"><span>Target Lv</span><input id="xp-tgt" type="number" min="1" max="110" value="75" /></label>
-              </div>
-              <p class="xp-calc-result" id="xp-calc-result">Need <strong>0</strong> XP</p>
-              <button type="button" class="btn btn-candy" id="xp-calc-apply">Apply to XP Field</button>
-            </div>
-            <button class="btn btn-run" type="submit" id="farm-btn">
-              <img src="assets/tr_event_116.png" alt="" width="22" height="22" />
-              Start Farm · 1 Token
-            </button>
-            <p id="farm-status" class="status" role="status"></p>
-          </form>
-        </div>
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="farm">Start Farm</button>
+        <button class="tab-btn" data-tab="topup">Topup</button>
+        <button class="tab-btn" data-tab="profile">Profile</button>
+      </div>
 
-        <div>
-          <div class="panel" style="margin-bottom:16px">
-            <div class="oven-head">
-              <div class="oven-titles">
-                <img src="assets/tr_ga170.png" alt="" width="28" height="28" />
-                <div>
-                  <h2 class="panel-title" style="font-size:1.2rem">Farm Queue</h2>
-                  <p class="panel-hint">Live queue status</p>
-                </div>
-              </div>
-              <span class="pill" id="queue-pill" style="font-size:0.7rem">—</span>
-            </div>
-            <div id="queue-panel" style="font-size:0.85rem;min-height:60px;display:flex;align-items:center;justify-content:center;color:#64748b">Loading...</div>
-          </div>
-          <div class="panel" style="margin-bottom:16px">
-            <div class="oven-head">
-              <div class="oven-titles">
-                <img src="assets/icon_giftpoint.png" alt="" width="28" height="28" />
-                <div>
-                  <h2 class="panel-title" style="font-size:1.2rem">Redeem Voucher</h2>
-                  <p class="panel-hint">TrueMoney Wallet</p>
-                </div>
-              </div>
-            </div>
-            <div id="voucher-status" class="status"></div>
-            <label class="field">
-              <span>Voucher URL</span>
-              <input type="url" id="voucher-url" placeholder="https://gift.truemoney.com/campaign/?v=..." />
-            </label>
-            <button class="btn btn-candy" id="voucher-btn" style="width:100%">
-              <img src="assets/boost16_shop.png" alt="" width="20" height="20" />
-              Redeem & Add Tokens
-            </button>
-          </div>
+      <div id="tab-farm" class="tab-content active">
+        <div class="dash-layout">
           <div class="panel">
             <div class="oven-head">
               <div class="oven-titles">
-                <img src="assets/tr_ga170.png" alt="" width="28" height="28" />
+                <img src="assets/crc_cookie_stone_box.png" alt="" width="28" height="28" />
                 <div>
-                  <h2 class="panel-title" style="font-size:1.2rem">Links</h2>
-                  <p class="panel-hint">Quick resources</p>
+                  <h2 class="panel-title" style="font-size:1.2rem">Start Farm Run</h2>
+                  <p class="panel-hint">Enter DevPlay account credentials</p>
                 </div>
               </div>
+              <span class="pill" style="font-size:0.7rem">DevPlay</span>
             </div>
-            <a href="https://discord.gg/SabrUQ3PCh" target="_blank" rel="noopener" class="btn btn-discord" style="margin-bottom:8px">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
-              Contact Admin on Discord
-            </a>
+            <form id="farm-form" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true">
+              <div class="autofill-trap" aria-hidden="true">
+                <input type="text" name="username" tabindex="-1" autocomplete="username" />
+                <input type="password" name="password" tabindex="-1" autocomplete="current-password" />
+              </div>
+              <div class="grid-2">
+                <label class="field">
+                  <span>DevPlay Email</span>
+                  <input id="dp-acct-mail" name="ckr_dp_acct_mail" type="text" inputmode="email" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="game account email" />
+                </label>
+                <label class="field">
+                  <span>DevPlay Password</span>
+                  <input id="dp-acct-secret" name="ckr_dp_acct_secret" type="password" required autocomplete="new-password" data-lpignore="true" data-1p-ignore="true" placeholder="••••••••" />
+                </label>
+              </div>
+              <div class="stat-grid">
+                <label class="field field-stat">
+                  <span class="field-stat-label">
+                    <span class="field-stat-name"><img src="assets/score.png" alt="" width="14" height="14" /> Score</span>
+                    <span class="field-stat-hint" id="farm-score-hint"></span>
+                  </span>
+                  <input id="farm-score" name="ckr_farm_score" type="text" inputmode="numeric" autocomplete="off" data-farm-num="1" value="0" />
+                </label>
+                <label class="field field-stat">
+                  <span class="field-stat-label">
+                    <span class="field-stat-name"><img src="assets/coin.png" alt="" width="14" height="14" /> Coins</span>
+                    <span class="field-stat-hint" id="farm-coin-hint"></span>
+                  </span>
+                  <input id="farm-coin" name="ckr_farm_coin" type="text" inputmode="numeric" autocomplete="off" data-farm-num="1" value="0" />
+                </label>
+                <label class="field field-stat">
+                  <span class="field-stat-label">
+                    <span class="field-stat-name"><img src="assets/level.png" alt="" width="14" height="14" /> XP</span>
+                    <span class="field-stat-hint" id="farm-exp-hint"></span>
+                  </span>
+                  <input id="farm-exp" name="ckr_farm_exp" type="text" inputmode="numeric" autocomplete="off" data-farm-num="1" value="0" />
+                </label>
+              </div>
+              <div class="xp-tools">
+                <button type="button" class="btn btn-ghost" id="xp-calc-open" style="width:100%;font-size:0.85rem">Calculate XP from Level</button>
+              </div>
+              <div id="xp-calc-card" class="xp-calc-card hidden" hidden>
+                <div class="xp-calc-head">
+                  <h3>XP Calculator</h3>
+                  <button type="button" class="xp-calc-close" id="xp-calc-close">×</button>
+                </div>
+                <p class="xp-calc-lead">Enter current and target level</p>
+                <div class="xp-calc-grid">
+                  <label class="field"><span>Current Lv</span><input id="xp-cur" type="number" min="1" max="110" value="25" /></label>
+                  <label class="field"><span>Target Lv</span><input id="xp-tgt" type="number" min="1" max="110" value="75" /></label>
+                </div>
+                <p class="xp-calc-result" id="xp-calc-result">Need <strong>0</strong> XP</p>
+                <button type="button" class="btn btn-candy" id="xp-calc-apply">Apply to XP Field</button>
+              </div>
+              <button class="btn btn-run" type="submit" id="farm-btn">
+                <img src="assets/tr_event_116.png" alt="" width="22" height="22" />
+                Start Farm · 1 Token
+              </button>
+              <p id="farm-status" class="status" role="status"></p>
+            </form>
           </div>
+          <div>
+            <div class="panel" style="margin-bottom:16px">
+              <div class="oven-head">
+                <div class="oven-titles">
+                  <img src="assets/tr_ga170.png" alt="" width="28" height="28" />
+                  <div>
+                    <h2 class="panel-title" style="font-size:1.2rem">Farm Queue</h2>
+                    <p class="panel-hint">Live queue status</p>
+                  </div>
+                </div>
+                <span class="pill" id="queue-pill" style="font-size:0.7rem">—</span>
+              </div>
+              <div id="queue-panel" style="font-size:0.85rem;min-height:60px;display:flex;align-items:center;justify-content:center;color:#64748b">Loading...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-topup" class="tab-content">
+        <div class="panel" style="max-width:500px;margin:0 auto">
+          <div class="oven-head">
+            <div class="oven-titles">
+              <img src="assets/icon_giftpoint.png" alt="" width="28" height="28" />
+              <div>
+                <h2 class="panel-title" style="font-size:1.2rem">Redeem Voucher</h2>
+                <p class="panel-hint">TrueMoney Wallet — 1 baht = N tokens</p>
+              </div>
+            </div>
+          </div>
+          <div id="voucher-status" class="status"></div>
+          <label class="field">
+            <span>Voucher URL</span>
+            <input type="url" id="voucher-url" placeholder="https://gift.truemoney.com/campaign/?v=..." />
+          </label>
+          <button class="btn btn-candy" id="voucher-btn" style="width:100%">
+            <img src="assets/boost16_shop.png" alt="" width="20" height="20" />
+            Redeem & Add Tokens
+          </button>
+        </div>
+      </div>
+
+      <div id="tab-profile" class="tab-content">
+        <div class="panel" style="max-width:500px;margin:0 auto">
+          <div class="oven-head">
+            <div class="oven-titles">
+              <img src="assets/img_snowman_mt_01.png" alt="" width="28" height="28" />
+              <div>
+                <h2 class="panel-title" style="font-size:1.2rem">Profile</h2>
+                <p class="panel-hint">Your account info</p>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
+            <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Username</span><strong id="profile-username">—</strong></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Token Balance</span><strong id="profile-balance">0</strong></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Role</span><strong id="profile-role">normal</strong></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Login</span><strong>Discord</strong></div>
+          </div>
+          <a href="https://discord.gg/SabrUQ3PCh" target="_blank" rel="noopener" class="btn btn-discord" style="margin-bottom:8px;margin-top:8px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+            Contact Admin on Discord
+          </a>
         </div>
       </div>
     </section>

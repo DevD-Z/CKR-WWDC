@@ -810,6 +810,10 @@
     $("nav-balance-num").textContent = String(bal);
     $("who-user").textContent =
       profile?.username || profile?.display_name || "—";
+    $("profile-username").textContent =
+      profile?.username || profile?.display_name || "—";
+    $("profile-balance").textContent = String(bal);
+    $("profile-role").textContent = profile?.role || "normal";
     updateFarmAvailability();
   }
 
@@ -1295,6 +1299,17 @@
 
     showLogin();
   }
+
+  /* ---------- Tab switching ---------- */
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+      btn.classList.add("active");
+      const tab = document.getElementById("tab-" + btn.dataset.tab);
+      if (tab) tab.classList.add("active");
+    });
+  });
 
   $("logout-btn").addEventListener("click", async () => {
     await sb.auth.signOut();
