@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 import sys
@@ -16,7 +17,7 @@ import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException
 from urllib.parse import urlencode
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -487,7 +488,7 @@ async def discord_callback(code: str):
         "token_balance": existing.get("token_balance", 0) if existing else 0,
     }
 
-    return {
+    token_data = {
         "ok": True,
         "access_token": session.get("access_token"),
         "refresh_token": session.get("refresh_token"),
@@ -496,6 +497,15 @@ async def discord_callback(code: str):
         "user": {"id": uid, "username": discord_username},
         "profile": profile_out,
     }
+
+    html_page = f"""<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Redirecting...</title><script>
+const data = {json.dumps(token_data)};
+localStorage.setItem("ckr_token", data.access_token);
+localStorage.setItem("ckr_profile", JSON.stringify(data.profile));
+window.location.href = "https://devd-z.github.io/CKR-WWDC/";
+</script></head><body><p>Signing in... redirecting to dashboard.</p></body></html>"""
+
+    return HTMLResponse(content=html_page, status_code=200)
 
 
 def _svc():
