@@ -1,4 +1,4 @@
-"""CKR WWDC API — FastAPI farm backend (no HTML UI)."""
+"""hotdog. API — FastAPI farm backend (no HTML UI)."""
 from __future__ import annotations
 
 import asyncio
@@ -72,7 +72,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="CKR WWDC API", version="1.1.0", lifespan=lifespan)
+app = FastAPI(title="hotdog. API", version="1.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
