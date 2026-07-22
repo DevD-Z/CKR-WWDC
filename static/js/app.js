@@ -1,4 +1,4 @@
-/* CKR WWDC client — public farm UI only (no admin) */
+/* hotdog. client — public farm UI only (no admin) */
 (function () {
   "use strict";
 
