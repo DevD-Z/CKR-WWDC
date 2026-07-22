@@ -1202,7 +1202,7 @@ async def admin_update_user(
 @app.post("/api/admin/redeem-voucher")
 async def admin_redeem_voucher(
     body: RedeemVoucherBody,
-    user: dict[str, Any] = Depends(verify_admin),
+    user: dict[str, Any] = Depends(require_admin),
 ):
     import re as _re
     import cloudscraper
@@ -1289,7 +1289,7 @@ class VoucherSettingsBody(BaseModel):
 
 @app.get("/api/admin/voucher-settings")
 async def get_voucher_settings(
-    user: dict[str, Any] = Depends(verify_admin),
+    user: dict[str, Any] = Depends(require_admin),
 ):
     if not _has_service_role():
         raise HTTPException(status_code=503, detail="service_role_not_configured")
@@ -1319,7 +1319,7 @@ async def get_voucher_settings(
 @app.post("/api/admin/voucher-settings")
 async def set_voucher_settings(
     body: VoucherSettingsBody,
-    user: dict[str, Any] = Depends(verify_admin),
+    user: dict[str, Any] = Depends(require_admin),
 ):
     if not _has_service_role():
         raise HTTPException(status_code=503, detail="service_role_not_configured")
