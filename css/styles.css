@@ -725,7 +725,8 @@ input {
   filter: brightness(1.06);
 }
 
-.btn-telegram img {
+.btn-telegram img,
+.btn-discord svg {
   width: 24px;
   height: 24px;
 }
