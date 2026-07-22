@@ -667,11 +667,6 @@
       btn.disabled = empty;
     }
     setFarmInputsLocked(empty);
-    if (empty && userView && !userView.classList.contains("hidden")) {
-      if (modalMode !== "empty") showEmptyCoinsModal();
-    } else if (!empty && modalMode === "empty") {
-      forceCloseModal();
-    }
   }
 
   function formatApiDetail(detail) {
