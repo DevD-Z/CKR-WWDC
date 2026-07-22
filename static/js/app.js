@@ -321,7 +321,7 @@
     } else {
       modalBody.textContent = body || "";
     }
-    modalIcon.src = icon || "assets/znight.png";
+    modalIcon.src = icon || "assets/tr_event_116.png";
     modalRoot.classList.toggle("locked", !!locked);
     modalRoot.classList.remove("hidden");
     modalRoot.setAttribute("aria-hidden", "false");
@@ -352,13 +352,13 @@
       mode: "empty",
       title: "coins หมด กรุณาเติม",
       body: "โทเค็นหมดแล้ว ไม่สามารถวิ่งฟาร์มได้ จนกว่าจะเติมโทเค็นผ่านแอดมิน",
-      icon: "assets/znight.png",
+      icon: "assets/tr_event_116.png",
       locked: true,
     });
     modalActions.appendChild(
       makeBtn("ติดต่อแอดมินทาง Telegram", "btn-telegram", null, {
         href: TELEGRAM_URL,
-        icon: "assets/znight.png",
+        icon: "assets/tr_event_116.png",
       })
     );
     modalActions.appendChild(
@@ -385,7 +385,7 @@
       mode: "error",
       title: title || "เกิดข้อผิดพลาด",
       body: message,
-      icon: "assets/znight.png",
+      icon: "assets/tr_event_116.png",
       locked: false,
     });
     modalActions.appendChild(
@@ -422,7 +422,7 @@
       mode: "result",
       title: "สรุปผลการฟาร์ม",
       bodyHtml: html,
-      icon: "assets/znight.png",
+      icon: "assets/tr_event_116.png",
       locked: false,
     });
     modalActions.appendChild(
@@ -514,7 +514,7 @@
       mode: "queue",
       title: waking ? "กำลังเชื่อมต่อเซิร์ฟเวอร์" : "คิวฟาร์ม",
       bodyHtml,
-      icon: "assets/znight.png",
+      icon: "assets/tr_event_116.png",
       locked: true,
     });
 
@@ -618,7 +618,7 @@
         mode: "confirm",
         title: "ยืนยันการวิ่งฟาร์ม?",
         body: "เมื่อกดยืนยัน จะหัก 1 โทเค็นทันที แม้ฟาร์มไม่สำเร็จ",
-        icon: "assets/znight.png",
+        icon: "assets/tr_event_116.png",
         locked: false,
       });
       modalActions.classList.add("row");
@@ -1201,16 +1201,23 @@
   async function bootstrap() {
     // Check URL hash for Discord OAuth token
     const hash = window.location.hash;
-    if (hash && hash.includes("access_token=")) {
-      try {
-        const params = new URLSearchParams(hash.slice(1));
-        const t = params.get("access_token");
-        if (t) {
-          localStorage.setItem("ckr_token", t);
-        }
+    if (hash) {
+      const params = new URLSearchParams(hash.slice(1));
+      const err = params.get("discord_error");
+      if (err) {
         window.location.hash = "";
         window.history.replaceState(null, "", window.location.pathname);
-      } catch (_) {}
+        document.getElementById("login-status").textContent = "Discord login failed: " + err;
+      } else if (hash.includes("access_token=")) {
+        try {
+          const t = params.get("access_token");
+          if (t) {
+            localStorage.setItem("ckr_token", t);
+          }
+          window.location.hash = "";
+          window.history.replaceState(null, "", window.location.pathname);
+        } catch (_) {}
+      }
     }
 
     setupDevPlayAutofillGuards();
@@ -1236,10 +1243,6 @@
       accessToken = discordToken;
       try {
         await refreshMe();
-        const me = await api("/api/me");
-        profile = me.profile;
-        paintProfile();
-        showApp();
         return;
       } catch (e) {
         localStorage.removeItem("ckr_token");
