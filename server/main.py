@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import os
 import re
@@ -816,9 +817,8 @@ async def farm_payment_create(
     qr_image_b64 = None
     try:
         async with httpx.AsyncClient(timeout=10.0) as c:
-            qr_resp = await c.get(qr_url.replace("https://promptpay.io", "https://promptpay.io"))
+            qr_resp = await c.get(qr_url)
             if qr_resp.status_code == 200:
-                import base64
                 qr_image_b64 = "data:image/png;base64," + base64.b64encode(qr_resp.content).decode()
     except Exception:
         pass
