@@ -243,7 +243,7 @@ async def cmd_setup(interaction: discord.Interaction):
     embed.add_field(name="👤 ดูข้อมูล", value="ดูรายละเอียด user", inline=True)
     embed.add_field(name="👥 รายชื่อ", value="ดู users ทั้งหมด", inline=True)
     embed.add_field(name="🏥 สถานะ", value="เช็คระบบ API", inline=True)
-    embed.set_footer(text="CKR WWDC Admin Panel")
+    embed.set_footer(text="hotdog. Admin Panel")
     await interaction.response.send_message(embed=embed, view=AdminView())
 
 
