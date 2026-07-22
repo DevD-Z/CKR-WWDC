@@ -1199,12 +1199,6 @@
 
   /* ---------- Auth bootstrap ---------- */
   async function bootstrap() {
-    const rememberEl = $("remember-me");
-    if (rememberEl) {
-      const pref = localStorage.getItem(REMEMBER_KEY);
-      rememberEl.checked = pref !== "0";
-    }
-
     setupDevPlayAutofillGuards();
     setupFarmNumberInputs();
     setupXpCalculator();
@@ -1222,7 +1216,7 @@
       }
     });
 
-    // Try Discord JWT token first
+    // Try Discord JWT token
     const discordToken = localStorage.getItem("ckr_token");
     if (discordToken) {
       accessToken = discordToken;
@@ -1239,66 +1233,14 @@
       }
     }
 
-    // Try Supabase session
-    const { data } = await sb.auth.getSession();
-    if (!data?.session) {
-      showLogin();
-      return;
-    }
-    accessToken = data.session.access_token;
-    try {
-      await refreshMe();
-    } catch (e) {
-      await sb.auth.signOut();
-      accessToken = null;
-      showLogin();
-      setStatus(
-        $("login-status"),
-        thError(e.message) || "Session expired. Please login again.",
-        "err"
-      );
-    }
+    showLogin();
   }
-
-  $("login-form").addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const remember = !!$("remember-me")?.checked;
-    setRememberPref(remember);
-
-    setStatus($("login-status"), "กำลังเข้าสู่ระบบ…", "muted");
-    $("login-btn").disabled = true;
-    try {
-      const username = $("login-user").value.trim();
-      const password = $("login-pass").value;
-      const data = await api("/api/auth/login", {
-        method: "POST",
-        body: { username, password },
-      });
-      if (!data.access_token || !data.refresh_token) {
-        throw new Error("login_no_session");
-      }
-      const { error } = await sb.auth.setSession({
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-      });
-      if (error) throw error;
-      accessToken = data.access_token;
-      profile = data.profile;
-      paintProfile();
-      showApp();
-      setStatus($("login-status"), "", "muted");
-      setupDevPlayAutofillGuards();
-    } catch (e) {
-      setStatus($("login-status"), thError(e.message) || "เข้าสู่ระบบไม่สำเร็จ", "err");
-    } finally {
-      $("login-btn").disabled = false;
-    }
-  });
 
   $("logout-btn").addEventListener("click", async () => {
     await sb.auth.signOut();
     accessToken = null;
     profile = null;
+    localStorage.removeItem("ckr_token");
     try {
       const keys = [];
       for (let i = 0; i < localStorage.length; i++) {
