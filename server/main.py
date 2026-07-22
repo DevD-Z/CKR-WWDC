@@ -798,7 +798,7 @@ SLIPOK_SESSION: httpx.AsyncClient | None = None
 
 def _slipok_headers() -> dict[str, str]:
     return {
-        "Authorization": f"Bearer {SLIPOK_API_KEY}",
+        "apikey": SLIPOK_API_KEY,
         "Content-Type": "application/json",
     }
 
@@ -822,17 +822,16 @@ async def farm_payment_create(
 
     try:
         client = await _slipok_client()
-        cb_url = f"{CALLBACK_BASE}/api/farm/payment/callback"
         sl_res = await client.post(
             "/qrcode",
             headers=_slipok_headers(),
             json={
                 "amount": body.amount,
                 "ref": ref,
-                "callbackUrl": cb_url,
             },
         )
         sl_data = sl_res.json()
+        print(f"[slipok] qrcode response status={sl_res.status_code} body={sl_data}")
         if sl_res.status_code != 200 or not sl_data.get("data", {}).get("qrImage"):
             raise HTTPException(status_code=502, detail=f"SlipOK error: {sl_data}")
         qr_image = sl_data["data"]["qrImage"]
