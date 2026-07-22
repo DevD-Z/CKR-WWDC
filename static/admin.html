@@ -148,21 +148,17 @@
             </div>
           </div>
           <div class="panel">
-            <div class="section-title" style="margin-bottom:16px"><img src="assets/icon_giftpoint.png" alt="" /> Redeem Voucher</div>
-            <div id="voucher-status" class="admin-status"></div>
-            <label class="field">
-              <span>Username (receiver)</span>
-              <input type="text" id="v-username" placeholder="Enter username" />
-            </label>
-            <label class="field">
-              <span>Voucher URL</span>
-              <input type="url" id="v-url" placeholder="https://gift.truemoney.com/campaign/?v=..." />
-            </label>
+            <div class="section-title" style="margin-bottom:16px"><img src="assets/icon_giftpoint.png" alt="" /> Voucher Settings</div>
+            <div id="voucher-settings-status" class="admin-status"></div>
             <label class="field">
               <span>TrueMoney Phone</span>
-              <input type="text" id="v-phone" value="0644718725" />
+              <input type="text" id="vs-phone" placeholder="0644718725" />
             </label>
-            <button class="btn btn-candy mt-10" id="v-redeem-btn" style="width:100%">Redeem & Add Tokens</button>
+            <label class="field">
+              <span>Points per 1 Baht</span>
+              <input type="number" id="vs-points" min="1" max="1000" placeholder="1" />
+            </label>
+            <button class="btn btn-candy mt-10" id="vs-save-btn" style="width:100%">Save Settings</button>
           </div>
         </div>
       </div>
@@ -387,22 +383,32 @@
     $('t-add-btn').onclick = () => tokenAction(parseInt($('t-amount').value) || 0);
     $('t-remove-btn').onclick = () => tokenAction(-(parseInt($('t-amount').value) || 0));
 
-    // Voucher
-    $('v-redeem-btn').onclick = async () => {
-      status($('voucher-status'), 'Redeeming...', 'load');
-      $('v-redeem-btn').disabled = true;
+    // Voucher settings
+    async function loadVoucherSettings() {
       try {
-        const data = await api('POST', '/api/admin/redeem-voucher', {
-          username: $('v-username').value.trim(),
-          voucher_url: $('v-url').value.trim(),
-          phone: $('v-phone').value.trim()
+        const data = await api('GET', '/api/admin/voucher-settings');
+        if (data.ok) {
+          $('vs-phone').value = data.phone || '0644718725';
+          $('vs-points').value = data.points_per_baht || 1;
+        }
+      } catch (_) {}
+    }
+    loadVoucherSettings();
+    $('vs-save-btn').onclick = async () => {
+      const btn = $('vs-save-btn');
+      const st = $('voucher-settings-status');
+      btn.disabled = true;
+      status(st, 'Saving...', 'load');
+      try {
+        const data = await api('POST', '/api/admin/voucher-settings', {
+          phone: $('vs-phone').value.trim(),
+          points_per_baht: parseInt($('vs-points').value) || 1
         });
-        status($('voucher-status'), '+' + data.tokens_added + ' Token (' + data.amount_baht + ' baht) — ' + data.username, 'ok');
-        $('v-url').value = '';
+        status(st, 'Saved: phone=' + data.phone + ', ' + data.points_per_baht + ' pt/baht', 'ok');
       } catch (e) {
-        status($('voucher-status'), e.message, 'err');
+        status(st, e.message, 'err');
       }
-      $('v-redeem-btn').disabled = false;
+      btn.disabled = false;
     };
   </script>
 </body>
