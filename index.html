@@ -14,13 +14,6 @@
   <link rel="stylesheet" href="css/styles.css" />
   <style>
     :root { --font: 'Inter', 'Prompt', 'Segoe UI', sans-serif; --display: 'Inter', 'Baloo 2', sans-serif; }
-    .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
-    .stat-card { background: linear-gradient(135deg, rgba(14,165,233,0.12), rgba(30,41,59,0.9)); border: 1px solid rgba(14,165,233,0.2); border-radius: 16px; padding: 20px; position: relative; overflow: hidden; }
-    .stat-card::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 100% 0%, rgba(14,165,233,0.08), transparent 60%); pointer-events: none; }
-    .stat-label { font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
-    .stat-value { font-family: var(--display); font-size: 2rem; font-weight: 800; color: #f1f5f9; line-height: 1.1; }
-    .stat-sub { font-size: 0.8rem; color: #64748b; margin-top: 4px; }
-    .stat-icon { position: absolute; top: 12px; right: 14px; width: 36px; height: 36px; opacity: 0.25; }
     .dash-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 860px) { .dash-layout { grid-template-columns: 1fr; } }
     .discord-btn { background: #5865F2; border-color: rgba(255,255,255,0.15); box-shadow: 0 6px 0 #4752c4, 0 12px 24px rgba(88,101,242,0.3); }
@@ -32,6 +25,13 @@
     .tab-btn.active { background: rgba(14,165,233,0.15); color: #22d3ee; box-shadow: 0 0 12px rgba(14,165,233,0.1); }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+    .topbar-stats { display: flex; align-items: center; gap: 8px; }
+    .topbar-stat { font-size: 0.75rem; padding: 4px 10px; border-radius: 999px; background: rgba(30,41,59,0.8); border: 1px solid rgba(148,163,184,0.1); color: #94a3b8; white-space: nowrap; }
+    .topbar-stat-srv { color: #22d3ee; border-color: rgba(34,211,238,0.2); }
+    .topbar-profile { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 999px; background: rgba(30,41,59,0.8); border: 1px solid rgba(148,163,184,0.1); }
+    .topbar-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+    .topbar-username { font-size: 0.85rem; font-weight: 600; color: #f1f5f9; }
+    @media (max-width: 720px) { .topbar-stats { display: none; } }
   </style>
 </head>
 <body>
@@ -50,9 +50,17 @@
       </span>
     </a>
     <div class="topbar-actions">
+      <div id="topbar-stats" class="topbar-stats hidden">
+        <span class="topbar-stat" id="topbar-queue">Idle</span>
+        <span class="topbar-stat topbar-stat-srv" id="topbar-server">Online</span>
+      </div>
       <div id="nav-balance" class="token-chip hidden">
         <img src="assets/coin.png" alt="" width="22" height="22" />
         <span id="nav-balance-num">0</span>
+      </div>
+      <div id="topbar-profile" class="topbar-profile hidden">
+        <img id="topbar-avatar" class="topbar-avatar" src="assets/img_snowman_mt_01.png" alt="" width="28" height="28" />
+        <span id="topbar-username">—</span>
       </div>
       <button type="button" id="logout-btn" class="btn btn-candy btn-logout hidden">Logout</button>
     </div>
@@ -82,31 +90,6 @@
 
     <!-- DASHBOARD -->
     <section id="user-view" class="view hidden">
-      <div class="dash-grid" id="stat-cards">
-        <div class="stat-card">
-          <div class="stat-label">Token Balance</div>
-          <div class="stat-value" id="token-balance">0</div>
-          <div class="stat-sub">1 token per farm run</div>
-          <img class="stat-icon" src="assets/notice_b20.png" alt="" />
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Account</div>
-          <div class="stat-value" id="who-user" style="font-size:1.3rem">—</div>
-          <div class="stat-sub">Discord</div>
-          <img class="stat-icon" src="assets/img_snowman_mt_01.png" alt="" />
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Queue Status</div>
-          <div class="stat-value" id="queue-stat-val" style="font-size:1.1rem">Idle</div>
-          <div class="stat-sub" id="queue-stat-sub">No active queue</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Server</div>
-          <div class="stat-value" id="server-stat-val" style="font-size:1.1rem">Online</div>
-          <div class="stat-sub" id="server-stat-sub">hotdog. API</div>
-        </div>
-      </div>
-
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="farm">Start Farm</button>
         <button class="tab-btn" data-tab="topup">Topup</button>
@@ -238,6 +221,9 @@
                 <p class="panel-hint">Your account info</p>
               </div>
             </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0">
+            <img id="profile-avatar" class="topbar-avatar" src="assets/img_snowman_mt_01.png" alt="" width="56" height="56" style="width:56px;height:56px;border-radius:50%;object-fit:cover" />
           </div>
           <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
             <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Username</span><strong id="profile-username">—</strong></div>

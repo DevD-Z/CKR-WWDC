@@ -789,6 +789,8 @@
     userView.classList.remove("hidden");
     $("logout-btn").classList.remove("hidden");
     $("nav-balance").classList.remove("hidden");
+    $("topbar-stats").classList.remove("hidden");
+    $("topbar-profile").classList.remove("hidden");
     updateFarmAvailability();
     refreshGateAndQueueUi().catch(() => {});
   }
@@ -806,14 +808,17 @@
 
   function paintProfile() {
     const bal = tokenBalance();
-    $("token-balance").textContent = String(bal);
+    const name = profile?.username || profile?.display_name || "—";
     $("nav-balance-num").textContent = String(bal);
-    $("who-user").textContent =
-      profile?.username || profile?.display_name || "—";
-    $("profile-username").textContent =
-      profile?.username || profile?.display_name || "—";
+    $("profile-username").textContent = name;
     $("profile-balance").textContent = String(bal);
     $("profile-role").textContent = profile?.role || "normal";
+    $("topbar-username").textContent = name;
+    if (profile?.avatar_url) {
+      $("topbar-avatar").src = profile.avatar_url;
+      const pa = $("profile-avatar");
+      if (pa) pa.src = profile.avatar_url;
+    }
     updateFarmAvailability();
   }
 
