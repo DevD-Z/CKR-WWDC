@@ -52,7 +52,7 @@ AUTH_HOST = "https://account.devplay.com"
 GSERVER   = "gserver.live.prod.devsnova.cloud:443"
 STREAMING = "streaming.live.prod.devsnova.cloud:443"
 LIVE_INDEX_HASH = "26e9ec2e5bc49b34877b3d784db97c5c"
-COMBO_NAME      = "26.7.0_crg_rhrnakakt"
+COMBO_NAME      = "26.6.1_dusrmsdyrhl_crg"
 
 # fallback config for clearing old pending rewards before switching to new combo
 _OLD_COMBO_NAME = "26.6.1_dusrmsdyrhl_crg"
