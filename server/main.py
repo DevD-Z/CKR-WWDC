@@ -897,6 +897,27 @@ async def _do_farm_payment_create(
     }
 
 
+IMGUR_CLIENT_ID = os.environ.get("IMGUR_CLIENT_ID", "d8c8f3b9a7e2c1d")
+
+
+async def _upload_to_imgur(image_bytes: bytes) -> Optional[str]:
+    """Upload image to imgur and return URL."""
+    import base64
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as c:
+            r = await c.post(
+                "https://api.imgur.com/3/image",
+                headers={"Authorization": f"Client-ID {IMGUR_CLIENT_ID}"},
+                data={"image": base64.b64encode(image_bytes).decode(), "type": "base64"},
+            )
+            if r.status_code == 200:
+                return r.json().get("data", {}).get("link")
+            print(f"[imgur] upload failed: {r.status_code} {r.text[:200]}")
+    except Exception as e:
+        print(f"[imgur] upload error: {e}")
+    return None
+
+
 @app.post("/api/farm/payment/verify")
 async def farm_payment_verify(
     ref: str = Form(...),
@@ -904,7 +925,7 @@ async def farm_payment_verify(
     amount_baht: int = Form(0),
     user: dict[str, Any] = Depends(verify_user),
 ):
-    """Verify a payment slip via SlipOK (JSON base64, like bot-topup)."""
+    """Verify a payment slip via SlipOK (upload to imgur first, then send URL)."""
     if not _has_service_role():
         raise HTTPException(status_code=503, detail="service_role_not_configured")
 
@@ -913,16 +934,19 @@ async def farm_payment_verify(
     if not file_bytes:
         raise HTTPException(status_code=400, detail="ไฟล์สลิปว่าง")
 
-    # Verify via SlipOK
-    import base64
-    b64 = base64.b64encode(file_bytes).decode()
+    # Upload image to imgur to get a public URL
+    image_url = await _upload_to_imgur(file_bytes)
+    if not image_url:
+        raise HTTPException(status_code=502, detail="อัปโหลดรูปสลิปไม่สำเร็จ — ลองอีกครั้ง")
+
+    # Verify via SlipOK with the public image URL (same as bot-topup)
     try:
         client = await _slipok_session()
         sl_res = await client.post(
             SLIPOK_BASE,
             headers={**{"Content-Type": "application/json"}, **_slipok_headers()},
             json={
-                "url": f"data:{file.content_type or 'image/png'};base64,{b64}",
+                "url": image_url,
                 "log": "true",
             },
         )
@@ -940,11 +964,10 @@ async def farm_payment_verify(
     except httpx.RequestError as e:
         raise HTTPException(status_code=502, detail=f"SlipOK connection failed: {e}")
 
-    # Determine token amount — use pending_payment if exists, otherwise from amount_baht param
+    # Determine token amount
     tokens = 0
     pp_row = None
     async with httpx.AsyncClient(timeout=20.0) as c:
-        # Try lookup pending_payment by ref or latest
         q = await c.get(
             f"{SUPABASE_URL}/rest/v1/pending_payments",
             params={"ref": f"eq.{ref}", "user_id": f"eq.{user['id']}", "select": "*", "limit": "1"},
@@ -965,7 +988,6 @@ async def farm_payment_verify(
             if pp_row["status"] != "pending":
                 return {"ok": True, "status": pp_row["status"], "tokens": pp_row["tokens"]}
             tokens = pp_row["tokens"]
-            # Check duplicate by txn_id
             dup = await c.get(
                 f"{SUPABASE_URL}/rest/v1/pending_payments",
                 params={"slipok_txn_id": f"eq.{txn_id}", "status": "eq.confirmed", "select": "id", "limit": "1"},
@@ -974,12 +996,10 @@ async def farm_payment_verify(
             if dup.status_code == 200 and dup.json():
                 return {"ok": False, "detail": "duplicate_slip", "transRef": txn_id}
         else:
-            # No pending_payment — calculate tokens from amount
             tokens = amount_baht * POINTS_PER_BAHT_PROMPTPAY
             if tokens < 1:
                 raise HTTPException(status_code=400, detail="จำนวนเงินไม่ถูกต้อง")
 
-        # Credit tokens via admin_credit_tokens RPC
         credit = await c.post(
             f"{SUPABASE_URL}/rest/v1/rpc/admin_credit_tokens",
             headers=svc,
@@ -993,7 +1013,6 @@ async def farm_payment_verify(
             raise HTTPException(status_code=500, detail="credit_failed")
         new_bal = credit.json().get("token_balance", tokens)
 
-        # Update pending_payment if we had one
         if pp_row:
             await c.patch(
                 f"{SUPABASE_URL}/rest/v1/pending_payments?id=eq.{pp_row['id']}",
