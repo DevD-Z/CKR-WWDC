@@ -897,27 +897,6 @@ async def _do_farm_payment_create(
     }
 
 
-IMGUR_CLIENT_ID = os.environ.get("IMGUR_CLIENT_ID", "d8c8f3b9a7e2c1d")
-
-
-async def _upload_to_imgur(image_bytes: bytes) -> Optional[str]:
-    """Upload image to imgur and return URL."""
-    import base64
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as c:
-            r = await c.post(
-                "https://api.imgur.com/3/image",
-                headers={"Authorization": f"Client-ID {IMGUR_CLIENT_ID}"},
-                data={"image": base64.b64encode(image_bytes).decode(), "type": "base64"},
-            )
-            if r.status_code == 200:
-                return r.json().get("data", {}).get("link")
-            print(f"[imgur] upload failed: {r.status_code} {r.text[:200]}")
-    except Exception as e:
-        print(f"[imgur] upload error: {e}")
-    return None
-
-
 @app.post("/api/farm/payment/verify")
 async def farm_payment_verify(
     ref: str = Form(...),
@@ -925,7 +904,7 @@ async def farm_payment_verify(
     amount_baht: int = Form(0),
     user: dict[str, Any] = Depends(verify_user),
 ):
-    """Verify a payment slip via SlipOK (upload to imgur first, then send URL)."""
+    """Verify a payment slip via SlipOK (multipart with file)."""
     if not _has_service_role():
         raise HTTPException(status_code=503, detail="service_role_not_configured")
 
@@ -934,19 +913,16 @@ async def farm_payment_verify(
     if not file_bytes:
         raise HTTPException(status_code=400, detail="ไฟล์สลิปว่าง")
 
-    # Upload image to imgur to get a public URL
-    image_url = await _upload_to_imgur(file_bytes)
-    if not image_url:
-        raise HTTPException(status_code=502, detail="อัปโหลดรูปสลิปไม่สำเร็จ — ลองอีกครั้ง")
-
-    # Verify via SlipOK with the public image URL (same as bot-topup)
+    # Verify via SlipOK — multipart with file (same field name as SlipOK expects)
     try:
         client = await _slipok_session()
         sl_res = await client.post(
             SLIPOK_BASE,
-            headers={**{"Content-Type": "application/json"}, **_slipok_headers()},
-            json={
-                "url": image_url,
+            headers=_slipok_headers(),
+            files={
+                "file": (file.filename or "slip.png", file_bytes, file.content_type or "image/png"),
+            },
+            data={
                 "log": "true",
             },
         )
