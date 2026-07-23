@@ -242,6 +242,12 @@ STATIC_DIR = ROOT / "static"
 STATIC_DIR.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+# Mount js, css, assets so raw paths like /js/config.js work
+for _d in ("js", "css", "assets"):
+    _p = ROOT / _d
+    if _p.is_dir():
+        app.mount(f"/{_d}", StaticFiles(directory=str(_p)), name=_d)
+
 from fastapi.responses import FileResponse
 
 @app.get("/app/{full_path:path}", include_in_schema=False)
