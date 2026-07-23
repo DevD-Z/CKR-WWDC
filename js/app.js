@@ -1618,9 +1618,10 @@ function startPpPoll(ref) {
     }
     setStatus($("pp-status"), "Verifying with SlipOK...", "load");
     try {
-      const form = new FormData();
-      form.append("ref", ppRef);
-      form.append("file", file);
+        const form = new FormData();
+        form.append("ref", ppRef);
+        form.append("file", file);
+        form.append("amount_baht", $("pp-amount")?.value || "0");
       const token = accessToken;
       const res = await fetch(API + "/api/farm/payment/verify", {
         method: "POST",

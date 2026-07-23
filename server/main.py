@@ -901,38 +901,19 @@ async def _do_farm_payment_create(
 async def farm_payment_verify(
     ref: str = Form(...),
     file: UploadFile = File(...),
+    amount_baht: int = Form(0),
     user: dict[str, Any] = Depends(verify_user),
 ):
-    """Verify a payment slip image via SlipOK API (JSON body, like bot-topup)."""
+    """Verify a payment slip via SlipOK (JSON base64, like bot-topup)."""
     if not _has_service_role():
         raise HTTPException(status_code=503, detail="service_role_not_configured")
 
     svc = _service_headers()
-
-    # Look up pending payment — try ref first, fallback to latest pending
-    async with httpx.AsyncClient(timeout=20.0) as c:
-        q = await c.get(
-            f"{SUPABASE_URL}/rest/v1/pending_payments",
-            params={"ref": f"eq.{ref}", "user_id": f"eq.{user['id']}", "select": "*", "limit": "1"},
-            headers={**svc, "Accept": "application/json"},
-        )
-        if q.status_code != 200 or not q.json():
-            q = await c.get(
-                f"{SUPABASE_URL}/rest/v1/pending_payments",
-                params={"user_id": f"eq.{user['id']}", "status": "eq.pending", "select": "*", "order": "created_at.desc", "limit": "1"},
-                headers={**svc, "Accept": "application/json"},
-            )
-            if q.status_code != 200 or not q.json():
-                raise HTTPException(status_code=404, detail="ไม่พบรายการเติมเงินของคุณ — กดสร้าง QR Code ก่อนแล้วลองใหม่")
-        row = q.json()[0]
-        if row["status"] != "pending":
-            return {"ok": True, "status": row["status"], "tokens": row["tokens"]}
-
     file_bytes = await file.read()
     if not file_bytes:
         raise HTTPException(status_code=400, detail="ไฟล์สลิปว่าง")
 
-    # Verify via SlipOK — JSON body with base64 file (same pattern as bot-topup)
+    # Verify via SlipOK
     import base64
     b64 = base64.b64encode(file_bytes).decode()
     try:
@@ -959,40 +940,73 @@ async def farm_payment_verify(
     except httpx.RequestError as e:
         raise HTTPException(status_code=502, detail=f"SlipOK connection failed: {e}")
 
-    # Credit tokens
+    # Determine token amount — use pending_payment if exists, otherwise from amount_baht param
+    tokens = 0
+    pp_row = None
     async with httpx.AsyncClient(timeout=20.0) as c:
-        dup = await c.get(
+        # Try lookup pending_payment by ref or latest
+        q = await c.get(
             f"{SUPABASE_URL}/rest/v1/pending_payments",
-            params={"slipok_txn_id": f"eq.{txn_id}", "status": "eq.confirmed", "select": "id", "limit": "1"},
+            params={"ref": f"eq.{ref}", "user_id": f"eq.{user['id']}", "select": "*", "limit": "1"},
             headers={**svc, "Accept": "application/json"},
         )
-        if dup.status_code == 200 and dup.json():
-            return {"ok": False, "detail": "duplicate_slip", "transRef": txn_id}
+        if q.status_code == 200 and q.json():
+            pp_row = q.json()[0]
+        if not pp_row:
+            q = await c.get(
+                f"{SUPABASE_URL}/rest/v1/pending_payments",
+                params={"user_id": f"eq.{user['id']}", "status": "eq.pending", "select": "*", "order": "created_at.desc", "limit": "1"},
+                headers={**svc, "Accept": "application/json"},
+            )
+            if q.status_code == 200 and q.json():
+                pp_row = q.json()[0]
 
-        await c.patch(
-            f"{SUPABASE_URL}/rest/v1/pending_payments?id=eq.{row['id']}",
-            headers=svc,
-            json={
-                "status": "confirmed",
-                "slipok_txn_id": txn_id,
-                "confirmed_at": datetime.now(timezone.utc).isoformat(),
-            },
-        )
+        if pp_row:
+            if pp_row["status"] != "pending":
+                return {"ok": True, "status": pp_row["status"], "tokens": pp_row["tokens"]}
+            tokens = pp_row["tokens"]
+            # Check duplicate by txn_id
+            dup = await c.get(
+                f"{SUPABASE_URL}/rest/v1/pending_payments",
+                params={"slipok_txn_id": f"eq.{txn_id}", "status": "eq.confirmed", "select": "id", "limit": "1"},
+                headers={**svc, "Accept": "application/json"},
+            )
+            if dup.status_code == 200 and dup.json():
+                return {"ok": False, "detail": "duplicate_slip", "transRef": txn_id}
+        else:
+            # No pending_payment — calculate tokens from amount
+            tokens = amount_baht * POINTS_PER_BAHT_PROMPTPAY
+            if tokens < 1:
+                raise HTTPException(status_code=400, detail="จำนวนเงินไม่ถูกต้อง")
+
+        # Credit tokens via admin_credit_tokens RPC
         credit = await c.post(
             f"{SUPABASE_URL}/rest/v1/rpc/admin_credit_tokens",
             headers=svc,
             json={
                 "p_user_id": user["id"],
-                "p_amount": row["tokens"],
-                "p_reason": f"promptpay_{ref}",
+                "p_amount": tokens,
+                "p_reason": f"promptpay_{txn_id or ref}",
             },
         )
         if credit.status_code != 200:
             raise HTTPException(status_code=500, detail="credit_failed")
-        new_bal = credit.json().get("token_balance", row["tokens"])
+        new_bal = credit.json().get("token_balance", tokens)
 
-    print(f"[slipok] credited {row['tokens']} tokens to {user['id']} ref={ref} txn={txn_id}")
-    return {"ok": True, "status": "confirmed", "tokens": row["tokens"], "token_balance": new_bal}
+        # Update pending_payment if we had one
+        if pp_row:
+            await c.patch(
+                f"{SUPABASE_URL}/rest/v1/pending_payments?id=eq.{pp_row['id']}",
+                headers=svc,
+                json={
+                    "status": "confirmed",
+                    "slipok_txn_id": txn_id,
+                    "confirmed_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
+    print(f"[slipok] credited {tokens} tokens to {user['id']} ref={ref} txn={txn_id}")
+    return {"ok": True, "status": "confirmed", "tokens": tokens, "token_balance": new_bal}
 
 
 @app.get("/api/farm/payment/status/{ref}")
