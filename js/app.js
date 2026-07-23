@@ -776,6 +776,7 @@
       options.headers || {}
     );
     if (accessToken) headers.Authorization = "Bearer " + accessToken;
+    if (_challenge) headers["X-Challenge"] = _challenge;
     let res;
     try {
       res = await fetch(API + path, {
@@ -1276,6 +1277,17 @@
     }
   }
 
+  /* ---------- Challenge token (anti-bot) ---------- */
+  let _challenge = "";
+  async function _fetchChallenge() {
+    try {
+      const r = await fetch(API + "/api/challenge");
+      const d = await r.json();
+      if (d.ok) _challenge = d.challenge;
+    } catch (_) {}
+  }
+  _fetchChallenge();
+
   /* ---------- Auth bootstrap ---------- */
   async function bootstrap() {
     // Check URL hash for Discord OAuth token
@@ -1623,9 +1635,11 @@ function startPpPoll(ref) {
         form.append("file", file);
         form.append("amount_baht", $("pp-amount")?.value || "0");
       const token = accessToken;
+      const verifyHeaders = token ? { Authorization: "Bearer " + token } : {};
+      if (_challenge) verifyHeaders["X-Challenge"] = _challenge;
       const res = await fetch(API + "/api/farm/payment/verify", {
         method: "POST",
-        headers: token ? { Authorization: "Bearer " + token } : {},
+        headers: verifyHeaders,
         body: form,
       });
       const data = await res.json();

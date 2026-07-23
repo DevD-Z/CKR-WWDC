@@ -76,6 +76,137 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="hotdog. API", version="1.1.0", lifespan=lifespan)
+
+# ---------------------------------------------------------------------------
+# Rate limiter — per-IP sliding window (memory)
+# ---------------------------------------------------------------------------
+import collections
+import ipaddress
+
+RATE_LIMIT_WINDOW = 60  # seconds
+RATE_LIMIT_MAX = 60     # max requests per window
+AUTH_RATE_LIMIT_MAX = 10  # stricter for auth / payment
+
+_rl_store: dict[str, collections.deque] = {}
+_rl_lock = threading.Lock()
+
+
+def _rl_key(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        ip = forwarded.split(",")[0].strip()
+    else:
+        ip = request.client.host if request.client else "0.0.0.0"
+    try:
+        ipaddress.ip_address(ip)
+    except ValueError:
+        ip = "0.0.0.0"
+    return ip
+
+
+def _rl_check(key: str, max_req: int) -> int:
+    now = time.time()
+    with _rl_lock:
+        if key not in _rl_store:
+            _rl_store[key] = collections.deque()
+        dq = _rl_store[key]
+        while dq and dq[0] < now - RATE_LIMIT_WINDOW:
+            dq.popleft()
+        if len(dq) >= max_req:
+            retry_after = int(dq[0] + RATE_LIMIT_WINDOW - now)
+            return retry_after
+        dq.append(now)
+        return 0
+
+
+@asynccontextmanager
+async def _clear_rl_store(_app: FastAPI):
+    yield
+    _rl_store.clear()
+
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+
+
+# ---------------------------------------------------------------------------
+# Challenge store (anti-bot)
+# ---------------------------------------------------------------------------
+import uuid as _uuid
+_challenge_store: dict[str, float] = {}
+_challenge_lock = threading.Lock()
+CHALLENGE_TTL = 1800  # 30 minutes
+
+
+def _challenge_new() -> str:
+    tok = _uuid.uuid4().hex
+    with _challenge_lock:
+        _challenge_store[tok] = time.time()
+    return tok
+
+
+def _challenge_ok(tok: str | None) -> bool:
+    if not tok:
+        return False
+    with _challenge_lock:
+        ts = _challenge_store.get(tok)
+        if ts is None:
+            return False
+        if time.time() - ts > CHALLENGE_TTL:
+            del _challenge_store[tok]
+            return False
+        return True
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if path.startswith("/api/"):
+            # Challenge check on writes
+            if request.method in ("POST", "PUT", "DELETE") and path not in (
+                "/api/auth/login",
+                "/api/auth/discord",
+                "/api/auth/discord/callback",
+                "/api/challenge",
+            ):
+                tok = request.headers.get("x-challenge", "")
+                if not _challenge_ok(tok):
+                    return Response(
+                        content=json.dumps({"ok": False, "detail": "bad_challenge"}),
+                        status_code=403,
+                        media_type="application/json",
+                    )
+
+            key = _rl_key(request)
+            is_sensitive = any(p in path for p in ("/auth/", "/payment/", "/admin/login"))
+            max_req = AUTH_RATE_LIMIT_MAX if is_sensitive else RATE_LIMIT_MAX
+            retry_after = _rl_check(key, max_req)
+            if retry_after:
+                return Response(
+                    content=json.dumps({"ok": False, "detail": f"rate_limit; retry_after={retry_after}s"}),
+                    status_code=429,
+                    media_type="application/json",
+                    headers={"Retry-After": str(retry_after)},
+                )
+        return await call_next(request)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        resp = await call_next(request)
+        if not resp.headers.get("X-Content-Type-Options"):
+            resp.headers["X-Content-Type-Options"] = "nosniff"
+        if not resp.headers.get("X-Frame-Options"):
+            resp.headers["X-Frame-Options"] = "DENY"
+        if not resp.headers.get("Referrer-Policy"):
+            resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        if not resp.headers.get("Permissions-Policy"):
+            resp.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        return resp
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -104,6 +235,15 @@ async def serve_frontend(full_path: str):
 
 # ---------------------------------------------------------------------------
 # Models
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/api/challenge")
+async def get_challenge():
+    return {"ok": True, "challenge": _challenge_new(), "ttl": CHALLENGE_TTL}
+
+
 # ---------------------------------------------------------------------------
 class LoginBody(BaseModel):
     username: str = Field(min_length=2, max_length=128)

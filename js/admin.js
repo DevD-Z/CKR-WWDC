@@ -9,6 +9,11 @@
 
   const API = cfg.API_BASE || "";
   let TOKEN = null;
+  let _challenge = "";
+  fetch(API + "/api/challenge")
+    .then((r) => r.json())
+    .then((d) => { if (d.ok) _challenge = d.challenge; })
+    .catch(() => {});
   let editState = null;
 
   const $ = (id) => document.getElementById(id);
@@ -20,6 +25,7 @@
   async function api(method, path, body) {
     const headers = { "Content-Type": "application/json" };
     if (TOKEN) headers["Authorization"] = "Bearer " + TOKEN;
+    if (_challenge) headers["X-Challenge"] = _challenge;
     const res = await fetch(API + path, {
       method,
       headers,
