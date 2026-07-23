@@ -913,22 +913,38 @@ async def farm_payment_verify(
     if not file_bytes:
         raise HTTPException(status_code=400, detail="ไฟล์สลิปว่าง")
 
-    # Verify via SlipOK — multipart with file (same field name as SlipOK expects)
+    # Verify via SlipOK — try JSON with base64 in `data` field first, fallback to multipart
+    import base64
+    b64_data = base64.b64encode(file_bytes).decode()
     try:
         client = await _slipok_session()
+        # First attempt: JSON with `data` field (base64 file)
         sl_res = await client.post(
             SLIPOK_BASE,
-            headers=_slipok_headers(),
-            files={
-                "files": (file.filename or "slip.png", file_bytes, file.content_type or "image/png"),
-            },
-            data={
+            headers={**{"Content-Type": "application/json"}, **_slipok_headers()},
+            json={
+                "data": b64_data,
                 "log": "true",
                 "amount": str(amount_baht),
             },
         )
         sl_data = sl_res.json()
-        print(f"[slipok] verify status={sl_res.status_code} body={sl_data}")
+        print(f"[slipok] verify (json/data) status={sl_res.status_code} body={sl_data}")
+        if not (sl_data.get("success") or sl_data.get("data", {}).get("success") or sl_data.get("status") == "success"):
+            # Fallback: multipart with files field
+            sl_res = await client.post(
+                SLIPOK_BASE,
+                headers=_slipok_headers(),
+                files={
+                    "files": (file.filename or "slip.png", file_bytes, file.content_type or "image/png"),
+                },
+                data={
+                    "log": "true",
+                    "amount": str(amount_baht),
+                },
+            )
+            sl_data = sl_res.json()
+            print(f"[slipok] verify (multipart/files) status={sl_res.status_code} body={sl_data}")
         if not (sl_data.get("success") or sl_data.get("data", {}).get("success") or sl_data.get("status") == "success"):
             msg = sl_data.get("message", "verification_failed")
             code = sl_data.get("code", "")
@@ -945,6 +961,15 @@ async def farm_payment_verify(
     tokens = 0
     pp_row = None
     async with httpx.AsyncClient(timeout=20.0) as c:
+        # Duplicate check: look for same txn_id in token_ledger (more reliable)
+        dup_ledger = await c.get(
+            f"{SUPABASE_URL}/rest/v1/token_ledger",
+            params={"reason": f"like.promptpay_{txn_id}%", "select": "id", "limit": "1"},
+            headers={**svc, "Accept": "application/json"},
+        )
+        if dup_ledger.status_code == 200 and dup_ledger.json():
+            return {"ok": False, "detail": "duplicate_slip", "transRef": txn_id}
+
         q = await c.get(
             f"{SUPABASE_URL}/rest/v1/pending_payments",
             params={"ref": f"eq.{ref}", "user_id": f"eq.{user['id']}", "select": "*", "limit": "1"},
@@ -965,13 +990,6 @@ async def farm_payment_verify(
             if pp_row["status"] != "pending":
                 return {"ok": True, "status": pp_row["status"], "tokens": pp_row["tokens"]}
             tokens = pp_row["tokens"]
-            dup = await c.get(
-                f"{SUPABASE_URL}/rest/v1/pending_payments",
-                params={"slipok_txn_id": f"eq.{txn_id}", "status": "eq.confirmed", "select": "id", "limit": "1"},
-                headers={**svc, "Accept": "application/json"},
-            )
-            if dup.status_code == 200 and dup.json():
-                return {"ok": False, "detail": "duplicate_slip", "transRef": txn_id}
         else:
             tokens = amount_baht * POINTS_PER_BAHT_PROMPTPAY
             if tokens < 1:
