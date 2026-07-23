@@ -1531,19 +1531,21 @@
   let ppPollTimer = null;
   let ppRef = null;
 
-  function stopPpPoll() {
+function stopPpPoll() {
     if (ppPollTimer) { clearInterval(ppPollTimer); ppPollTimer = null; }
-  }
+}
 
-  function startPpPoll(ref) {
+function startPpPoll(ref) {
     stopPpPoll();
     ppRef = ref;
+    localStorage.setItem("ckr_pp_ref", ref);
     ppPollTimer = setInterval(async () => {
       if (!ref) return;
       try {
         const data = await api("/api/farm/payment/status/" + ref);
         if (data.status === "confirmed") {
           stopPpPoll();
+          localStorage.removeItem("ckr_pp_ref");
           setStatus($("pp-status"), "✅ Payment confirmed! Tokens credited.", "ok");
           $("pp-verify-area")?.classList.add("hidden");
           $("pp-verify-btn")?.remove();
@@ -1600,8 +1602,14 @@
     btn.disabled = false;
   });
 
+  // Restore ppRef from localStorage in case of page refresh
+  if (!ppRef) ppRef = localStorage.getItem("ckr_pp_ref");
+
   $("pp-verify-btn")?.addEventListener("click", async () => {
-    if (!ppRef) return;
+    if (!ppRef) {
+      setStatus($("pp-status"), "กรุณากดสร้าง QR Code ก่อนอัปโหลดสลิป", "err");
+      return;
+    }
     const fileInput = $("pp-slip-file");
     const file = fileInput?.files?.[0];
     if (!file) {
@@ -1631,6 +1639,7 @@
       }
       if (data.status === "confirmed") {
         stopPpPoll();
+        localStorage.removeItem("ckr_pp_ref");
         setStatus($("pp-status"), "✅ Verified! +" + data.tokens + " Tokens credited.", "ok");
         $("pp-verify-area")?.classList.add("hidden");
         $("pp-verify-btn")?.remove();

@@ -859,9 +859,9 @@ async def farm_payment_create(
 
         tokens = body.amount * points_per_baht
         async with httpx.AsyncClient(timeout=20.0) as c:
-            await c.post(
+            ins = await c.post(
                 f"{SUPABASE_URL}/rest/v1/pending_payments",
-                headers=svc,
+                headers={**svc, "Prefer": "return=representation"},
                 json={
                     "user_id": uid,
                     "amount_baht": body.amount,
@@ -870,6 +870,9 @@ async def farm_payment_create(
                     "status": "pending",
                 },
             )
+            if ins.status_code not in (200, 201):
+                print(f"[promptpay] insert failed: {ins.status_code} {ins.text}")
+                raise HTTPException(status_code=500, detail="สร้างรายการเติมเงินไม่สำเร็จ — ลองอีกครั้ง")
 
     return {
         "ok": True,
@@ -894,7 +897,7 @@ async def farm_payment_verify(
 
     svc = _service_headers()
 
-    # Look up the pending payment
+    # Look up the pending payment — try ref + user_id first, then fall back to latest pending
     async with httpx.AsyncClient(timeout=20.0) as c:
         q = await c.get(
             f"{SUPABASE_URL}/rest/v1/pending_payments",
@@ -902,7 +905,14 @@ async def farm_payment_verify(
             headers={**svc, "Accept": "application/json"},
         )
         if q.status_code != 200 or not q.json():
-            raise HTTPException(status_code=404, detail="ไม่พบรายการเติมเงินนี้ — กรุณากดสร้าง QR Code ใหม่ก่อนอัปโหลดสลิป")
+            # Fallback: find the latest pending payment for this user
+            q = await c.get(
+                f"{SUPABASE_URL}/rest/v1/pending_payments",
+                params={"user_id": f"eq.{user['id']}", "status": "eq.pending", "select": "*", "order": "created_at.desc", "limit": "1"},
+                headers={**svc, "Accept": "application/json"},
+            )
+            if q.status_code != 200 or not q.json():
+                raise HTTPException(status_code=404, detail="ไม่พบรายการเติมเงินของคุณ — กดสร้าง QR Code ก่อน แล้วอัปโหลดสลิปตาม")
         row = q.json()[0]
         if row["status"] != "pending":
             return {"ok": True, "status": row["status"], "tokens": row["tokens"]}
