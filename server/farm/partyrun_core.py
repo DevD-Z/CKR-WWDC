@@ -22,12 +22,12 @@
 """
 
 # ===========================  CONFIG — EDIT ME  ============================
-EMAIL    = ""     # your DevPlay account email
-PASSWORD = ""              # your DevPlay account password
+EMAIL    = "autozammzax2@gmail.com"     # your DevPlay account email
+PASSWORD = "0987komm"              # your DevPlay account password
 
 SCORE    = 800000                  # final score to submit
 COIN     = 1               # coins you want to earn this run
-EXP      = 1              # exp you want to earn this run
+EXP      = 1000000              # exp you want to earn this run
 
 # advanced (usually leave as-is)
 PLAYTIME_SECONDS = 2               # fake play time before submitting the run
@@ -54,22 +54,26 @@ STREAMING = "streaming.live.prod.devsnova.cloud:443"
 LIVE_INDEX_HASH = "26e9ec2e5bc49b34877b3d784db97c5c"
 COMBO_NAME      = "26.7.0_crg_rhrnakakt"
 
+# fallback config for clearing old pending rewards before switching to new combo
+_OLD_COMBO_NAME = "26.6.1_dusrmsdyrhl_crg"
+_OLD_HASH       = "26e9ec2e5bc49b34877b3d784db97c5c"
+
 HEADERS = {
     "X-Bundle-Id": "com.devsisters.crg", "X-API-Key": "SrwOwqNLG7fyi0kYvk03xc1s7eM",
     "Content-Type": "application/json; charset=utf-8", "User-Agent": "okhttp/5.3.2",
 }
 
 DEFAULT_LC = {
-    "app_build": "614", "app_version": "26.7.02",
+    "app_build": "626", "app_version": "26.7.02",
     "locale_on_game": "en", "location_country": "TH",
     "os_name": "android", "os_version": "12",
     "store": "playstore", "timezone": "Asia/Bangkok",
-    "anonymous_id": "4c92554c-0433-4867-b5ad-174c038e5125",
-    "library_version": "0.3.3-rc19", "library_name": "DevPlay Cocos SDK",
-    "fgs_id": "b12e1fe7-ae2e-42c5-a89d-53a95cf809ef",
-    "app_installed_id": "2998eedf-95b6-4b0b-9d3f-a969caa582f6",
+    "anonymous_id": "93da58ca-8a82-4f07-9f41-733f9b84af7a",
+    "library_version": "0.3.3-rc24", "library_name": "DevPlay Cocos SDK",
+    "fgs_id": "b4c18e73-5afd-4285-be87-c0a6e2b7e99b",
+    "app_installed_id": "e2bd76de-a8c8-41f5-af82-392123592fc0",
     "devsisters_id": "",
-    "semi_device_id": "6717f5009755eba1",
+    "semi_device_id": "79fc1f64b9760b43",
     "device": {"traits": [], "manufacturer": "Samsung", "model": "SM-S918U",
                "version": "Android OS 12"},
 }
@@ -215,7 +219,7 @@ def get_my_equipment():
 
 
 # --------------------------- clear pending ---------------------------------
-def finalize_session(session, my):
+def finalize_session(session, my, combo=None, hash=None):
     """Reconnect to a stuck/unfinished ingame session and send quit_request so the
     server finalizes it (makes it claimable). Needed when claim returns
     INTERNAL SERVER ERROR because the match is still open waiting for the player."""
@@ -225,6 +229,8 @@ def finalize_session(session, my):
     my_info = {"party_id": session.get("party_id", ""), "mid": MID, "name": my["nick"],
                "picture_stuff_seq": my["pic"], "equipment": equip, "tier_seq": my["tier"]}
     outq = queue.Queue(); msgno = [0]; done = [False]
+    _combo = combo or COMBO_NAME
+    _hash = hash or LIVE_INDEX_HASH
 
     def send(quiet=False, **oneof):
         msgno[0] += 1
@@ -248,8 +254,8 @@ def finalize_session(session, my):
             time.sleep(1.5)
 
     md = [("authorization", "Bearer " + session["auth_token"]),
-          ("player-id", MID), ("combo-name", COMBO_NAME),
-          ("index-file-hash", LIVE_INDEX_HASH), ("login-platform", "GUEST"),
+          ("player-id", MID), ("combo-name", _combo),
+          ("index-file-hash", _hash), ("login-platform", "GUEST"),
           ("market-type", "GOOGLE_PLAY")]
     ch = grpc.insecure_channel(addr)
     stub = ch.stream_stream("/service.multiplay.IngameAPI/IngameStream",
@@ -287,7 +293,17 @@ def clear_pending(my, max_loops=8):
     for _ in range(max_loops):
         init = party_run_init()
         if init.get("__error__"):
-            return True
+            # party_run_init may fail if the server rejects our combo/hash;
+            # fall back to old combo+hash so we can clear any pending reward
+            # that was created before the version update.
+            old_md = [(k, _OLD_COMBO_NAME if k == "combo-name" else
+                       _OLD_HASH if k == "index-file-hash" else v)
+                      for k, v in FULL_MD]
+            init = unary(STREAMING, "service.multiplay.MatchMakerAPI",
+                         "PartyRunInit", {"mid": MID}, old_md)
+            if init.get("__error__"):
+                print("  party_run_init failed (new + old combo), skipping clear")
+                return True
         unclaimed = list(init.get("unclaimed_reward_ingame_id_list") or [])
         s = init.get("last_ingame_session_info")
         if s and s.get("ingame_id"):
@@ -304,9 +320,10 @@ def clear_pending(my, max_loops=8):
             details = r.get("details", "")
             print("  pending", iid, "not ready:", details)
             # a stuck live session: reconnect + quit to finalize, then re-claim
+            # use old combo+hash for finalizing (pending may be from prev version)
             if s and s.get("ingame_id") == iid and s.get("address") and iid not in tried_finalize:
                 tried_finalize.add(iid)
-                finalize_session(s, my)
+                finalize_session(s, my, combo=_OLD_COMBO_NAME, hash=_OLD_HASH)
                 r2 = claim(iid)
                 if not r2.get("__error__"):
                     print("  cleared pending reward after finalize", iid)
