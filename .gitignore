@@ -22,3 +22,8 @@ _original_index.html
 _schema.sql
 znight.png
 static/assets/
+# APK files
+*.xapk
+*.apk
+_xapk_extracted/
+_xapk.zip

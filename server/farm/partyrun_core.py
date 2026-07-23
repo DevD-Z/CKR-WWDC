@@ -52,7 +52,7 @@ AUTH_HOST = "https://account.devplay.com"
 GSERVER   = "gserver.live.prod.devsnova.cloud:443"
 STREAMING = "streaming.live.prod.devsnova.cloud:443"
 LIVE_INDEX_HASH = "26e9ec2e5bc49b34877b3d784db97c5c"
-COMBO_NAME      = "26.6.1_dusrmsdyrhl_crg"
+COMBO_NAME      = "26.7.0_crg_rhrnakakt"
 
 HEADERS = {
     "X-Bundle-Id": "com.devsisters.crg", "X-API-Key": "SrwOwqNLG7fyi0kYvk03xc1s7eM",
@@ -60,7 +60,7 @@ HEADERS = {
 }
 
 DEFAULT_LC = {
-    "app_build": "614", "app_version": "26.6.12",
+    "app_build": "614", "app_version": "26.7.02",
     "locale_on_game": "en", "location_country": "TH",
     "os_name": "android", "os_version": "12",
     "store": "playstore", "timezone": "Asia/Bangkok",
