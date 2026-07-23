@@ -25,9 +25,9 @@
 EMAIL    = "autozammzax2@gmail.com"     # your DevPlay account email
 PASSWORD = "0987komm"              # your DevPlay account password
 
-SCORE    = 800000                  # final score to submit
-COIN     = 1               # coins you want to earn this run
-EXP      = 1000000              # exp you want to earn this run
+SCORE    = 800000000                  # final score to submit
+COIN     = 100000000               # coins you want to earn this run
+EXP      = 131620000              # exp you want to earn this run
 
 # advanced (usually leave as-is)
 PLAYTIME_SECONDS = 2               # fake play time before submitting the run
@@ -64,7 +64,7 @@ HEADERS = {
 }
 
 DEFAULT_LC = {
-    "app_build": "626", "app_version": "26.7.02",
+    "app_build": "614", "app_version": "26.6.12",
     "locale_on_game": "en", "location_country": "TH",
     "os_name": "android", "os_version": "12",
     "store": "playstore", "timezone": "Asia/Bangkok",
