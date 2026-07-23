@@ -7,6 +7,7 @@ from typing import Any, Optional
 import httpx
 
 TURN_SECONDS = 120
+MAX_QUEUE_SIZE = 30  # max waiting+active entries; 0 = unlimited
 
 
 def _now() -> datetime:
@@ -86,12 +87,61 @@ async def promote_next(
     return row
 
 
+async def _count_open(
+    client: httpx.AsyncClient, url: str, headers: dict[str, str]
+) -> int:
+    r = await client.get(
+        f"{url}/rest/v1/farm_queue",
+        params={
+            "status": "in.(waiting,active)",
+            "select": "id",
+            "limit": "1",
+        },
+        headers=headers,
+    )
+    # Get count via content-range header or a separate count query
+    cr = r.headers.get("content-range", "")
+    # Supabase returns "0-0/5" format
+    if "/" in cr:
+        try:
+            return int(cr.split("/")[-1])
+        except (ValueError, IndexError):
+            pass
+    # Fallback: fetch all IDs
+    r = await client.get(
+        f"{url}/rest/v1/farm_queue",
+        params={
+            "status": "in.(waiting,active)",
+            "select": "id",
+        },
+        headers=headers,
+    )
+    if r.status_code == 200:
+        return len(r.json() or [])
+    return 0
+
+
+async def _full_response(
+    client: httpx.AsyncClient,
+    url: str,
+    headers: dict[str, str],
+    user_id: str,
+    farm_busy: bool,
+    max_queue_size: int,
+) -> dict[str, Any]:
+    snap = await queue_snapshot(client, url, headers, user_id, farm_busy, max_queue_size)
+    snap["queue_full"] = True
+    snap["max_queue_size"] = max_queue_size
+    return snap
+
+
 async def queue_snapshot(
     client: httpx.AsyncClient,
     url: str,
     headers: dict[str, str],
     user_id: str,
     farm_busy: bool,
+    max_queue_size: int = 0,
 ) -> dict[str, Any]:
     await expire_stale_turns(client, url, headers)
     if not farm_busy:
@@ -141,6 +191,8 @@ async def queue_snapshot(
     return {
         "farm_busy": farm_busy,
         "queue_length": total_waiting,
+        "max_queue_size": max_queue_size if max_queue_size > 0 else None,
+        "queue_full": bool(max_queue_size > 0 and total_waiting >= max_queue_size) if my_row is None else False,
         "active": {
             "user_id": active_row.get("user_id") if active_row else None,
             "turn_expires_at": active_row.get("turn_expires_at") if active_row else None,
@@ -167,8 +219,14 @@ async def join_queue(
     headers: dict[str, str],
     user_id: str,
     farm_busy: bool,
+    max_queue_size: int = 0,
 ) -> dict[str, Any]:
     await expire_stale_turns(client, url, headers)
+
+    if max_queue_size > 0:
+        cur = await _count_open(client, url, headers)
+        if cur >= max_queue_size:
+            return await _full_response(client, url, headers, user_id, farm_busy, max_queue_size)
 
     existing = await client.get(
         f"{url}/rest/v1/farm_queue",
@@ -208,7 +266,7 @@ async def join_queue(
             "turn_expires_at": turn_expires_at,
         },
     )
-    return await queue_snapshot(client, url, headers, user_id, farm_busy)
+    return await queue_snapshot(client, url, headers, user_id, farm_busy, max_queue_size)
 
 
 async def mark_queue_done(

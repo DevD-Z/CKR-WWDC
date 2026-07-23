@@ -13,3 +13,12 @@ build/
 *.log
 .DS_Store
 .supabase/
+
+# dev artifacts
+_check_verify.py
+_get_icons*.py
+_replace_icons*.py
+_original_index.html
+_schema.sql
+znight.png
+static/assets/

@@ -197,6 +197,11 @@
         let html = "";
         if (q.farm_busy)
           html += '<div style="color:var(--danger);margin-bottom:10px;font-weight:600">Farm is running</div>';
+        if (q.max_queue_size) {
+          const pct = Math.round((q.queue_length / q.max_queue_size) * 100);
+          const color = pct >= 90 ? "var(--danger)" : pct >= 70 ? "var(--warning)" : "var(--accent)";
+          html += `<div style="margin-bottom:10px;font-size:.82rem;color:var(--text-muted)">Queue: <strong style="color:${color}">${q.queue_length}</strong> / ${q.max_queue_size}</div>`;
+        }
         if (q.current) {
           const sec = q.current.turn_expires?.remaining_sec ?? 0;
           const min = Math.floor(sec / 60);

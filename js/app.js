@@ -492,10 +492,18 @@
       if (statVal) statVal.textContent = "Farming";
       if (statSub) statSub.textContent = count + " waiting";
     } else {
-      panel.innerHTML = '<div style="color:#22d3ee;display:flex;align-items:center;gap:6px"><span class="queue-spinner" aria-hidden="true" style="width:12px;height:12px;border:2px solid #22d3ee;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> Queue idle — start farming anytime</div>';
-      if (pill) { pill.textContent = "Idle"; pill.style.background = "#22d3ee66"; pill.style.color = "#22d3ee"; }
-      if (statVal) statVal.textContent = "Idle";
-      if (statSub) statSub.textContent = "No active queue";
+      if (g.queue_full) {
+        const mq = g.max_queue_size || "?";
+        panel.innerHTML = `<div style="color:var(--danger);display:flex;align-items:center;gap:6px">Queue full (${g.queue_length}/${mq}) — try again later</div>`;
+        if (pill) { pill.textContent = "Full"; pill.style.background = "var(--danger)"; pill.style.color = "#fff"; }
+        if (statVal) statVal.textContent = "Queue full";
+        if (statSub) statSub.textContent = g.queue_length + " / " + mq;
+      } else {
+        panel.innerHTML = '<div style="color:#22d3ee;display:flex;align-items:center;gap:6px"><span class="queue-spinner" aria-hidden="true" style="width:12px;height:12px;border:2px solid #22d3ee;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;display:inline-block"></span> Queue idle — start farming anytime</div>';
+        if (pill) { pill.textContent = "Idle"; pill.style.background = "#22d3ee66"; pill.style.color = "#22d3ee"; }
+        if (statVal) statVal.textContent = "Idle";
+        if (statSub) statSub.textContent = "No active queue";
+      }
     }
   }
 
@@ -550,6 +558,14 @@
         "</strong></div>";
       bodyHtml +=
         '<p class="queue-note">กดเข้าคิวเพื่อจองลำดับ — คนกดก่อนได้คิวก่อน</p>';
+    } else if (g.queue_full) {
+      const mq = g.max_queue_size || "?";
+      bodyHtml +=
+        '<div class="queue-stat"><span>คิวเต็ม</span><strong style="color:var(--danger)">' +
+        escapeHtml(g.queue_length ?? 0) + " / " + mq +
+        "</strong></div>";
+      bodyHtml +=
+        '<p class="queue-note">คิวเต็ม — รอสักครู่แล้วลองใหม่</p>';
     } else {
       bodyHtml +=
         '<p class="queue-note">ระบบกำลังจัดคิว…</p>';
@@ -565,7 +581,9 @@
       locked: true,
     });
 
-    if (!waking && !me.status && g.farm_busy) {
+    if (!waking && !me.status && g.queue_full) {
+      // no join button when queue is full
+    } else if (!waking && !me.status && g.farm_busy) {
       modalActions.appendChild(
         makeBtn("เข้าคิว", "btn-candy", async () => {
           try {
@@ -598,7 +616,7 @@
       if (data.is_my_turn || data.me?.status === "waiting" || data.me?.status === "active") {
         renderQueueModal(data);
         startQueuePoll();
-      } else if (modalMode === "queue" && !data.farm_busy && !data.me?.status) {
+      } else if (modalMode === "queue" && !data.farm_busy && !data.queue_full && !data.me?.status) {
         forceCloseModal();
         stopQueuePoll();
       } else if (modalMode === "queue") {

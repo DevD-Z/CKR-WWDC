@@ -48,6 +48,7 @@ print("[boot] DISCORD_CLIENT_ID set:", bool(DISCORD_CLIENT_ID))
 # Sequential farm queue (Render Free = single instance)
 _farm_lock = threading.Lock()
 _farm_busy = False
+MAX_QUEUE_SIZE = int(os.environ.get("MAX_QUEUE_SIZE", "30"))
 
 ALLOWED_ORIGINS = [
     "https://devd-z.github.io",
@@ -517,7 +518,7 @@ def _svc():
 async def _gate_for(user_id: str) -> dict[str, Any]:
     async with httpx.AsyncClient(timeout=20.0) as client:
         return await fq.queue_snapshot(
-            client, SUPABASE_URL, _svc(), user_id, _farm_busy
+            client, SUPABASE_URL, _svc(), user_id, _farm_busy, MAX_QUEUE_SIZE
         )
 
 
@@ -534,8 +535,10 @@ async def farm_gate(user: dict[str, Any] = Depends(verify_user)):
 async def farm_queue_join(user: dict[str, Any] = Depends(verify_user)):
     async with httpx.AsyncClient(timeout=20.0) as client:
         snap = await fq.join_queue(
-            client, SUPABASE_URL, _svc(), user["id"], _farm_busy
+            client, SUPABASE_URL, _svc(), user["id"], _farm_busy, MAX_QUEUE_SIZE
         )
+    if snap.get("queue_full") and not snap.get("me", {}).get("status"):
+        return {"ok": False, **snap}
     return {"ok": True, **snap}
 
 
@@ -1253,6 +1256,8 @@ async def admin_queue(admin: dict[str, Any] = Depends(require_admin)):
     return {
         "ok": True,
         "farm_busy": _farm_busy,
+        "max_queue_size": MAX_QUEUE_SIZE,
+        "queue_length": len(queue_list) + (1 if active_row else 0),
         "current": current,
         "queue": queue_list,
         "last_done": last_done,
