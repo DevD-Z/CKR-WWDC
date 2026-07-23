@@ -793,6 +793,24 @@ class CreatePaymentBody(BaseModel):
 SLIPOK_CLIENT: httpx.AsyncClient | None = None
 
 
+def _slipok_friendly_error(msg: str, code: str) -> str:
+    """Map SlipOK errors to user-friendly Thai messages."""
+    msg_lower = (msg or "").lower()
+    if any(k in msg_lower for k in ("not found", "ไม่พบ", "no data", "ไม่พบข้อมูล")):
+        return "ไม่พบข้อมูลสลิปในระบบธนาคาร — อาจยังไม่ผ่านรายการ ลองอีกครั้งใน 5-10 นาที หรือตรวจสอบว่าโอนถึงเบอร์ที่ถูกต้อง"
+    if any(k in msg_lower for k in ("invalid image", "invalid file", "not an image", "ไม่ใช่รูป")):
+        return "ไฟล์สลิปไม่ถูกต้อง — กรุณาอัปโหลดภาพสลิปจริง (PNG/JPG)"
+    if any(k in msg_lower for k in ("api key", "unauthorized", "forbidden", "invalid key")):
+        return "ระบบตรวจสอบสลิปมีปัญหา — แจ้งแอดมิน (SlipOK key)"
+    if any(k in msg_lower for k in ("amount", "mismatch", "ไม่ตรง")):
+        return "จำนวนเงินในสลิปไม่ตรงกับที่แจ้งไว้ — ตรวจสอบยอดเงินและลองใหม่"
+    if any(k in msg_lower for k in ("timeout", "expired", "หมดอายุ")):
+        return "การตรวจสอบหมดเวลา — ลองอัปโหลดสลิปใหม่อีกครั้ง"
+    if any(k in msg_lower for k in ("rate limit", "too many", "limit")):
+        return "ระบบตรวจสอบมีข้อจำกัดการใช้งาน — รอสักครู่แล้วลองใหม่"
+    return f"ตรวจสอบสลิปไม่สำเร็จ — {msg}"
+
+
 def _slipok_headers() -> dict[str, str]:
     return {
         "x-authorization": SLIPOK_API_KEY,
@@ -884,7 +902,7 @@ async def farm_payment_verify(
             headers={**svc, "Accept": "application/json"},
         )
         if q.status_code != 200 or not q.json():
-            raise HTTPException(status_code=404, detail="payment_not_found")
+            raise HTTPException(status_code=404, detail="ไม่พบรายการเติมเงินนี้ — กรุณากดสร้าง QR Code ใหม่ก่อนอัปโหลดสลิป")
         row = q.json()[0]
         if row["status"] != "pending":
             return {"ok": True, "status": row["status"], "tokens": row["tokens"]}
@@ -892,7 +910,7 @@ async def farm_payment_verify(
     # Read uploaded file bytes
     file_bytes = await file.read()
     if not file_bytes:
-        raise HTTPException(status_code=400, detail="empty_file")
+        raise HTTPException(status_code=400, detail="ไฟล์สลิปว่าง — กรุณาเลือกไฟล์สลิปอีกครั้ง")
 
     # Verify via SlipOK (multipart with file)
     try:
@@ -916,7 +934,9 @@ async def farm_payment_verify(
             print(f"[slipok] verify failed: code={code} msg={msg}")
             if code == "1012":
                 return {"ok": False, "detail": "duplicate_slip"}
-            raise HTTPException(status_code=400, detail=f"SlipOK: {msg}")
+            # Map common SlipOK errors to friendly Thai
+            friendly = _slipok_friendly_error(msg, code)
+            raise HTTPException(status_code=400, detail=friendly)
         txn_id = sl_data["data"].get("transRef", "")
     except httpx.RequestError as e:
         raise HTTPException(status_code=502, detail=f"SlipOK connection failed: {e}")

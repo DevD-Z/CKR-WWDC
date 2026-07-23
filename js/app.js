@@ -1589,8 +1589,8 @@
       const amtEl = $("pp-qr-amount");
       if (amtEl) amtEl.textContent = data.amount_baht + " THB = " + data.tokens + " Tokens";
       const refEl = $("pp-qr-ref");
-      if (refEl) refEl.textContent = "Ref: " + data.ref;
-      setStatus($("pp-status"), "Scan QR with your banking app to pay", "ok");
+      if (refEl) refEl.innerHTML = "Ref: " + data.ref + "<br><small style='color:var(--text-muted)'>โอนไปที่เบอร์: " + (data.promptpay_number || "—") + "</small>";
+      setStatus($("pp-status"), "สแกน QR เพื่อโอนเงิน หรือโอนเข้าเบอร์ข้างบน", "ok");
       $("pp-verify-area")?.classList.remove("hidden");
       startPpPoll(data.ref);
     } catch (e) {
