@@ -45,6 +45,7 @@
       TOKEN = data.access_token;
       $("login-view").classList.add("hidden");
       $("admin-view").classList.remove("hidden");
+      $("sidebar").classList.remove("hidden");
       $("header-user-name").textContent = data.profile?.username || "admin";
       status($("login-status"), "", "");
       refreshDashboard();
@@ -61,6 +62,7 @@
     TOKEN = null;
     $("admin-view").classList.add("hidden");
     $("login-view").classList.remove("hidden");
+    $("sidebar").classList.add("hidden");
     $("header-user-name").textContent = "";
     $("sidebar").classList.remove("open");
   };

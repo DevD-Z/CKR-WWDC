@@ -787,9 +787,9 @@
   function showApp() {
     loginView.classList.add("hidden");
     userView.classList.remove("hidden");
+    $("sidebar").classList.remove("hidden");
     $("logout-btn").classList.remove("hidden");
     $("nav-balance").classList.remove("hidden");
-    // topbar stats are always visible
     $("topbar-profile").classList.remove("hidden");
     updateFarmAvailability();
     refreshGateAndQueueUi().catch(() => {});
@@ -802,6 +802,7 @@
     forceCloseRunStatusPopup();
     loginView.classList.remove("hidden");
     userView.classList.add("hidden");
+    $("sidebar").classList.add("hidden");
     $("logout-btn").classList.add("hidden");
     $("nav-balance").classList.add("hidden");
     $("topbar-profile").classList.add("hidden");
@@ -1310,9 +1311,9 @@
   }
 
   /* ---------- Tab switching (sidebar + topbar) ---------- */
-  document.querySelectorAll(".nav-link[data-tab], .tab-btn[data-tab]").forEach((btn) => {
+  document.querySelectorAll(".nav-link[data-tab]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const container = btn.closest(".sidebar-nav, .tab-bar");
+      const container = btn.closest(".sidebar-nav");
       if (container) container.querySelectorAll(".active").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       const tabId = btn.dataset.tab;

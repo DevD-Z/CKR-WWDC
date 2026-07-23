@@ -17,7 +17,7 @@
 <div class="bg-orbs" aria-hidden="true"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div><div class="dots"></div></div>
 
 <div class="dashboard">
-  <aside class="sidebar" id="sidebar">
+  <aside class="sidebar hidden" id="sidebar">
     <div class="sidebar-header">
       <img class="sidebar-logo" src="assets/znight.png" alt="" width="40" height="40" />
       <div><div class="sidebar-title">hotdog.</div><div class="sidebar-sub">Dashboard</div></div>
@@ -29,6 +29,7 @@
           <li class="nav-item"><button class="nav-link active" data-tab="farm"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12h18M12 3v18"/></svg>Start Farm</button></li>
           <li class="nav-item"><button class="nav-link" data-tab="topup"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg>Topup</button></li>
           <li class="nav-item"><button class="nav-link" data-tab="history"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>History</button></li>
+          <li class="nav-item"><button class="nav-link" data-tab="profile"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</button></li>
         </ul>
       </div>
     </nav>
@@ -79,12 +80,7 @@
       </section>
 
       <section id="user-view" class="view hidden">
-        <div class="tab-bar">
-          <button class="tab-btn active" data-tab="farm">Start Farm</button>
-          <button class="tab-btn" data-tab="topup">Topup</button>
-          <button class="tab-btn" data-tab="history">History</button>
-          <button class="tab-btn" data-tab="profile">Profile</button>
-        </div>
+
 
         <div id="tab-farm" class="tab-content active">
           <div class="content-grid">
