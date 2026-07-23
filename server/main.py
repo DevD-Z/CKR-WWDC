@@ -903,13 +903,13 @@ async def farm_payment_verify(
     file: UploadFile = File(...),
     user: dict[str, Any] = Depends(verify_user),
 ):
-    """Verify a payment slip image via SlipOK API."""
+    """Verify a payment slip image via SlipOK API (JSON body, like bot-topup)."""
     if not _has_service_role():
         raise HTTPException(status_code=503, detail="service_role_not_configured")
 
     svc = _service_headers()
 
-    # Look up the pending payment — try ref + user_id first, then fall back to latest pending
+    # Look up pending payment — try ref first, fallback to latest pending
     async with httpx.AsyncClient(timeout=20.0) as c:
         q = await c.get(
             f"{SUPABASE_URL}/rest/v1/pending_payments",
@@ -917,53 +917,49 @@ async def farm_payment_verify(
             headers={**svc, "Accept": "application/json"},
         )
         if q.status_code != 200 or not q.json():
-            # Fallback: find the latest pending payment for this user
             q = await c.get(
                 f"{SUPABASE_URL}/rest/v1/pending_payments",
                 params={"user_id": f"eq.{user['id']}", "status": "eq.pending", "select": "*", "order": "created_at.desc", "limit": "1"},
                 headers={**svc, "Accept": "application/json"},
             )
             if q.status_code != 200 or not q.json():
-                raise HTTPException(status_code=404, detail="ไม่พบรายการเติมเงินของคุณ — กดสร้าง QR Code ก่อน แล้วอัปโหลดสลิปตาม")
+                raise HTTPException(status_code=404, detail="ไม่พบรายการเติมเงินของคุณ — กดสร้าง QR Code ก่อนแล้วลองใหม่")
         row = q.json()[0]
         if row["status"] != "pending":
             return {"ok": True, "status": row["status"], "tokens": row["tokens"]}
 
-    # Read uploaded file bytes
     file_bytes = await file.read()
     if not file_bytes:
-        raise HTTPException(status_code=400, detail="ไฟล์สลิปว่าง — กรุณาเลือกไฟล์สลิปอีกครั้ง")
+        raise HTTPException(status_code=400, detail="ไฟล์สลิปว่าง")
 
-    # Verify via SlipOK (multipart with file)
+    # Verify via SlipOK — JSON body with base64 file (same pattern as bot-topup)
+    import base64
+    b64 = base64.b64encode(file_bytes).decode()
     try:
         client = await _slipok_session()
         sl_res = await client.post(
             SLIPOK_BASE,
-            headers=_slipok_headers(),
-            files={
-                "files": (file.filename or "slip.png", file_bytes, file.content_type or "image/png"),
-            },
-            data={
+            headers={**{"Content-Type": "application/json"}, **_slipok_headers()},
+            json={
+                "url": f"data:{file.content_type or 'image/png'};base64,{b64}",
                 "log": "true",
-                "amount": str(row["amount_baht"]),
             },
         )
         sl_data = sl_res.json()
-        print(f"[slipok] verify response status={sl_res.status_code} body={sl_data}")
-        if not sl_data.get("success") or not sl_data.get("data", {}).get("success"):
+        print(f"[slipok] verify status={sl_res.status_code} body={sl_data}")
+        if not (sl_data.get("success") or sl_data.get("data", {}).get("success") or sl_data.get("status") == "success"):
             msg = sl_data.get("message", "verification_failed")
             code = sl_data.get("code", "")
-            print(f"[slipok] verify failed: code={code} msg={msg}")
             if code == "1012":
                 return {"ok": False, "detail": "duplicate_slip"}
-            # Map common SlipOK errors to friendly Thai
             friendly = _slipok_friendly_error(msg, code)
             raise HTTPException(status_code=400, detail=friendly)
-        txn_id = sl_data["data"].get("transRef", "")
+        txn_id = sl_data.get("data", {}).get("transRef", "")
+        sl_amount = float(sl_data.get("data", {}).get("amount", 0))
     except httpx.RequestError as e:
         raise HTTPException(status_code=502, detail=f"SlipOK connection failed: {e}")
 
-    # Check duplicate txn_id & credit tokens
+    # Credit tokens
     async with httpx.AsyncClient(timeout=20.0) as c:
         dup = await c.get(
             f"{SUPABASE_URL}/rest/v1/pending_payments",
@@ -995,7 +991,7 @@ async def farm_payment_verify(
             raise HTTPException(status_code=500, detail="credit_failed")
         new_bal = credit.json().get("token_balance", row["tokens"])
 
-    print(f"[slipok] credited {row['tokens']} tokens to {user['id']} for ref={ref} txn={txn_id}")
+    print(f"[slipok] credited {row['tokens']} tokens to {user['id']} ref={ref} txn={txn_id}")
     return {"ok": True, "status": "confirmed", "tokens": row["tokens"], "token_balance": new_bal}
 
 
