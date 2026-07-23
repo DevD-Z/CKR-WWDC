@@ -42,6 +42,8 @@ DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
 DISCORD_REDIRECT_URI = os.environ.get("DISCORD_REDIRECT_URI", "https://ckr-wwdc-x0pe.onrender.com/api/auth/discord/callback")
 
+TURNSTILE_SECRET = "0x4AAAAAAD7oj-LtRhcZz7uKngvFFxhKy34"
+
 print("[boot] SUPABASE_URL set:", bool(SUPABASE_URL))
 print("[boot] DISCORD_CLIENT_ID set:", bool(DISCORD_CLIENT_ID))
 
@@ -123,6 +125,26 @@ def _rl_check(key: str, max_req: int) -> int:
 async def _clear_rl_store(_app: FastAPI):
     yield
     _rl_store.clear()
+
+
+# ---------------------------------------------------------------------------
+# Turnstile verification
+# ---------------------------------------------------------------------------
+async def verify_turnstile(request: Request) -> None:
+    token = request.headers.get("x-turnstile", "")
+    if not token:
+        return  # optional — allow missing token for now (soft enforcement)
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as c:
+            r = await c.post(
+                "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+                data={"secret": TURNSTILE_SECRET, "response": token},
+            )
+            j = r.json()
+            if not j.get("success"):
+                print(f"[turnstile] verify fail: {j}")
+    except Exception as e:
+        print(f"[turnstile] error: {e}")
 
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -415,7 +437,7 @@ async def me(user: dict[str, Any] = Depends(verify_user)):
 # Auth: username + password → Supabase session (Pages never need email)
 # ---------------------------------------------------------------------------
 @app.post("/api/auth/login")
-async def auth_login(body: LoginBody):
+async def auth_login(body: LoginBody, _turnstile: None = Depends(verify_turnstile)):
     if not SUPABASE_URL or not SUPABASE_ANON_KEY:
         raise HTTPException(status_code=503, detail="auth_not_configured")
 
@@ -505,9 +527,21 @@ async def auth_login(body: LoginBody):
 # Discord OAuth2
 # ---------------------------------------------------------------------------
 @app.get("/api/auth/discord")
-async def discord_auth():
+async def discord_auth(turnstile_token: str = ""):
     if not DISCORD_CLIENT_ID:
         raise HTTPException(status_code=503, detail="discord_not_configured")
+    if turnstile_token:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as c:
+                r = await c.post(
+                    "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+                    data={"secret": TURNSTILE_SECRET, "response": turnstile_token},
+                )
+                j = r.json()
+                if not j.get("success"):
+                    print(f"[turnstile] discord verify fail: {j}")
+        except Exception as e:
+            print(f"[turnstile] discord error: {e}")
     params = urlencode({
         "client_id": DISCORD_CLIENT_ID,
         "redirect_uri": DISCORD_REDIRECT_URI,
@@ -1039,6 +1073,7 @@ async def _do_farm_payment_create(
 
 @app.post("/api/farm/payment/verify")
 async def farm_payment_verify(
+    _turnstile: None = Depends(verify_turnstile),
     ref: str = Form(...),
     file: UploadFile = File(...),
     amount_baht: int = Form(0),
@@ -1735,6 +1770,7 @@ async def admin_list_redeem_codes(
 @app.post("/api/farm/redeem/redeem-code")
 async def farm_redeem_code(
     body: dict[str, str],
+    _turnstile: None = Depends(verify_turnstile),
     user: dict[str, Any] = Depends(verify_user),
 ):
     code = (body.get("code") or "").strip()

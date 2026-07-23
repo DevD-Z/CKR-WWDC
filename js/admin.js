@@ -26,6 +26,9 @@
     const headers = { "Content-Type": "application/json" };
     if (TOKEN) headers["Authorization"] = "Bearer " + TOKEN;
     if (_challenge) headers["X-Challenge"] = _challenge;
+    if (typeof turnstile !== "undefined") {
+      try { headers["X-Turnstile"] = turnstile.getResponse(); } catch (_) {}
+    }
     const res = await fetch(API + path, {
       method,
       headers,

@@ -777,6 +777,7 @@
     );
     if (accessToken) headers.Authorization = "Bearer " + accessToken;
     if (_challenge) headers["X-Challenge"] = _challenge;
+    if (typeof _turnstileToken !== "undefined" && _turnstileToken) headers["X-Turnstile"] = _turnstileToken;
     let res;
     try {
       res = await fetch(API + path, {
@@ -1637,6 +1638,7 @@ function startPpPoll(ref) {
       const token = accessToken;
       const verifyHeaders = token ? { Authorization: "Bearer " + token } : {};
       if (_challenge) verifyHeaders["X-Challenge"] = _challenge;
+      if (typeof _turnstileToken !== "undefined" && _turnstileToken) verifyHeaders["X-Turnstile"] = _turnstileToken;
       const res = await fetch(API + "/api/farm/payment/verify", {
         method: "POST",
         headers: verifyHeaders,
