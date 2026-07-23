@@ -286,6 +286,7 @@
   // Redeem codes
   $("code-generate-btn").onclick = async () => {
     const tokens = parseInt($("code-tokens").value) || 0;
+    const maxUses = parseInt($("code-max-uses").value) || 1;
     const custom = ($("code-custom").value || "").trim().toUpperCase();
     if (tokens < 1) {
       status($("code-status"), "Token amount must be >= 1", "err");
@@ -293,14 +294,14 @@
     }
     status($("code-status"), "Generating...", "ok");
     try {
-      const body = { tokens };
+      const body = { tokens, max_uses: maxUses };
       if (custom) body.code = custom;
       const data = await api("POST", "/api/admin/redeem-code/create", body);
       if (data.ok) {
         $("code-display").textContent = data.code;
         $("code-result").classList.remove("hidden");
         $("code-custom").value = "";
-        status($("code-status"), "Code generated: " + data.tokens + " tokens", "ok");
+        status($("code-status"), "Code generated: " + data.tokens + " tokens, " + data.max_uses + " use(s)", "ok");
         refreshCodes();
       }
     } catch (e) {
@@ -327,16 +328,17 @@
         status($("codes-list-status"), "No codes", "");
         return;
       }
-      let html = '<div class="table-wrap"><table class="data-table"><thead><tr><th>Code</th><th>Tokens</th><th>Used By</th><th>Used At</th><th>Created</th></tr></thead><tbody>';
+      let html = '<div class="table-wrap"><table class="data-table"><thead><tr><th>Code</th><th>Tokens</th><th>Uses</th><th>Status</th><th>Created</th></tr></thead><tbody>';
       codes.forEach((c) => {
-        const used = c.used_by ? (c.used_at ? c.used_at.slice(0, 16).replace("T", " ") : "Yes") : '<span style="color:var(--success)">Available</span>';
+        const used = c.used_count || 0;
+        const maxUses = c.max_uses || 1;
+        const full = used >= maxUses;
         const created = c.created_at ? c.created_at.slice(0, 16).replace("T", " ") : "—";
-        const usedAt = c.used_at ? c.used_at.slice(0, 16).replace("T", " ") : "—";
         html += `<tr>
           <td><code style="color:var(--primary-light);font-family:'Space Mono',monospace">${c.code}</code></td>
           <td class="table-amount" style="color:var(--success)">+${c.tokens}</td>
-          <td>${used}</td>
-          <td>${usedAt}</td>
+          <td>${used}/${maxUses}</td>
+          <td>${full ? '<span style="color:var(--danger)">Exhausted</span>' : '<span style="color:var(--success)">Available</span>'}</td>
           <td>${created}</td>
         </tr>`;
       });

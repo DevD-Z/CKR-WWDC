@@ -220,6 +220,10 @@
 
   const ERR_TH = {
     insufficient_tokens: "Contact Admin on Discord",
+    code_not_found: "ไม่พบโค้ดนี้ในระบบ",
+    code_already_used: "คุณใช้โค้ดนี้ไปแล้ว",
+    code_exhausted: "โค้ดนี้ใช้ครบจำนวนแล้ว",
+    already_used: "คุณใช้โค้ดนี้ไปแล้ว",
     farm_busy: "ระบบกำลังยุ่งอยู่ ลองใหม่อีกสักครู่",
     farm_error: "การฟาร์มล้มเหลว ลองใหม่อีกครั้ง",
     consume_failed: "หักโทเค็นไม่สำเร็จ ลองใหม่อีกครั้ง",

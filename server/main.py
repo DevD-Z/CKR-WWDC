@@ -1461,6 +1461,7 @@ class VoucherSettingsBody(BaseModel):
 class CreateRedeemCodeBody(BaseModel):
     tokens: int = Field(ge=1, le=100000)
     code: Optional[str] = Field(None, min_length=3, max_length=32)
+    max_uses: int = Field(default=1, ge=1, le=10000)
 
 
 @app.post("/api/admin/redeem-code/create")
@@ -1498,13 +1499,13 @@ async def admin_create_redeem_code(
         r = await client.post(
             f"{SUPABASE_URL}/rest/v1/redeem_codes",
             headers={**svc, "Prefer": "return=representation"},
-            json={"code": code, "tokens": body.tokens, "created_by": admin["id"]},
+            json={"code": code, "tokens": body.tokens, "max_uses": body.max_uses, "created_by": admin["id"]},
         )
         if r.status_code not in (200, 201):
             raise HTTPException(status_code=500, detail=r.text)
         row = r.json()[0]
 
-    return {"ok": True, "id": row["id"], "code": code, "tokens": body.tokens}
+    return {"ok": True, "id": row["id"], "code": code, "tokens": body.tokens, "max_uses": body.max_uses}
 
 
 @app.get("/api/admin/redeem-codes")
