@@ -1,375 +1,269 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>hotdog. — Dashboard</title>
-  <meta name="description" content="hotdog. Dashboard" />
-  <meta name="color-scheme" content="dark" />
-  <meta name="theme-color" content="#0f172a" />
-  <link rel="icon" href="assets/znight.png" type="image/png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css" />
-  <style>
-    :root { --font: 'Inter', 'Prompt', 'Segoe UI', sans-serif; --display: 'Inter', 'Baloo 2', sans-serif; }
-    .dash-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    @media (max-width: 860px) { .dash-layout { grid-template-columns: 1fr; } }
-    .discord-btn { background: #5865F2; border-color: rgba(255,255,255,0.15); box-shadow: 0 6px 0 #4752c4, 0 12px 24px rgba(88,101,242,0.3); }
-    .discord-btn:hover:not(:disabled) { filter: brightness(1.1); }
-    .login-stage { min-height: auto; padding: 20px 0; }
-    .tab-bar { display: flex; gap: 0; margin-bottom: 20px; background: rgba(30,41,59,0.6); border-radius: 12px; padding: 4px; border: 1px solid rgba(148,163,184,0.1); }
-    .tab-btn { flex: 1; padding: 10px 16px; background: transparent; border: none; color: #64748b; font-size: 0.9rem; font-weight: 600; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
-    .tab-btn:hover { color: #94a3b8; background: rgba(255,255,255,0.03); }
-    .tab-btn.active { background: rgba(14,165,233,0.15); color: #22d3ee; box-shadow: 0 0 12px rgba(14,165,233,0.1); }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    .topbar-stats { display: flex; align-items: center; gap: 8px; }
-    .pp-amounts { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-    .pp-amt-btn { flex: 1; min-width: 50px; padding: 10px 8px; border-radius: 10px; border: 1px solid rgba(148,163,184,0.15); background: rgba(30,41,59,0.8); color: #94a3b8; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.15s; text-align: center; }
-    .pp-amt-btn:hover { border-color: rgba(14,165,233,0.3); color: #f1f5f9; }
-    .pp-amt-btn.active { border-color: #22d3ee; background: rgba(34,211,238,0.1); color: #22d3ee; }
-    .pp-qr-area { margin-top: 16px; }
-    .pp-qr-box { display: flex; flex-direction: column; align-items: center; padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(148,163,184,0.1); }
-    .pp-qr-img { width: 200px; height: 200px; border-radius: 10px; image-rendering: pixelated; }
-    .pp-qr-box p { text-align: center; }
-    @media (max-width: 480px) { .pp-amt-btn { min-width: 40px; padding: 8px 4px; font-size: 0.85rem; } .pp-qr-img { width: 160px; height: 160px; } }
-    .topbar-stat { font-size: 0.75rem; padding: 4px 10px; border-radius: 999px; background: rgba(30,41,59,0.8); border: 1px solid rgba(148,163,184,0.1); color: #94a3b8; white-space: nowrap; }
-    .topbar-stat-srv { color: #22d3ee; border-color: rgba(34,211,238,0.2); }
-    .topbar-profile { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 999px; background: rgba(30,41,59,0.8); border: 1px solid rgba(148,163,184,0.1); }
-    .topbar-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
-    .topbar-username { font-size: 0.85rem; font-weight: 600; color: #f1f5f9; }
-    @media (max-width: 720px) { .topbar-stats { display: none; } }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>hotdog. — Dashboard</title>
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#0b1120" />
+<link rel="icon" href="assets/znight.png" type="image/png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/glass-theme.css" />
+<link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <div class="bakery-bg" aria-hidden="true">
-    <div class="bakery-glow bakery-glow-a"></div>
-    <div class="bakery-glow bakery-glow-b"></div>
-    <div class="crumb-pattern"></div>
-  </div>
+<div class="bg-orbs" aria-hidden="true"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div><div class="dots"></div></div>
 
-  <header class="topbar">
-    <a class="brand" href="#" aria-label="hotdog.">
-      <img class="brand-logo" src="assets/znight.png" width="44" height="44" alt="hotdog." />
-      <span class="brand-text">
-        <span class="brand-title">hotdog.</span>
-        <span class="brand-sub">Dashboard</span>
-      </span>
-    </a>
-    <div class="topbar-actions">
-      <div id="topbar-stats" class="topbar-stats hidden">
-        <span class="topbar-stat" id="topbar-queue">Idle</span>
-        <span class="topbar-stat topbar-stat-srv" id="topbar-server">Online</span>
-      </div>
-      <div id="nav-balance" class="token-chip hidden">
-        <img src="assets/coin.png" alt="" width="22" height="22" />
-        <span id="nav-balance-num">0</span>
-      </div>
-      <div id="topbar-profile" class="topbar-profile hidden">
-        <img id="topbar-avatar" class="topbar-avatar" src="assets/img_snowman_mt_01.png" alt="" width="28" height="28" />
-        <span id="topbar-username">—</span>
-      </div>
-      <button type="button" id="logout-btn" class="btn btn-candy btn-logout hidden">Logout</button>
+<div class="dashboard">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <img class="sidebar-logo" src="assets/znight.png" alt="" width="40" height="40" />
+      <div><div class="sidebar-title">hotdog.</div><div class="sidebar-sub">Dashboard</div></div>
     </div>
-  </header>
-
-  <main class="shell">
-    <!-- LOGIN -->
-    <section id="login-view" class="view">
-      <div class="login-stage" style="grid-template-columns:1fr;min-height:auto;max-width:440px;margin:0 auto">
-        <div class="login-hero" style="padding:0 0 12px">
-          <img class="hero-logo" src="assets/znight.png" width="120" height="120" alt="hotdog." />
-          <h1 class="hero-title">hotdog.</h1>
-          <p class="hero-lead">Cookie Run Farm Dashboard</p>
-          <p class="hero-note">1 token per run · Admin only</p>
-        </div>
-        <div class="panel login-panel" style="max-width:100%">
-          <h2 class="panel-title">Sign In</h2>
-          <p class="panel-hint">Sign in with Discord</p>
-          <button class="btn discord-btn" id="discord-login-btn" style="width:100%">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
-            Sign in with Discord
-          </button>
-          <p id="login-status" class="status" role="status"></p>
-        </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Main Menu</div>
+        <ul style="list-style:none;padding:0;margin:0">
+          <li class="nav-item"><button class="nav-link active" data-tab="farm"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12h18M12 3v18"/></svg>Start Farm</button></li>
+          <li class="nav-item"><button class="nav-link" data-tab="topup"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg>Topup</button></li>
+          <li class="nav-item"><button class="nav-link" data-tab="history"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>History</button></li>
+        </ul>
       </div>
-    </section>
-
-    <!-- DASHBOARD -->
-    <section id="user-view" class="view hidden">
-      <div class="tab-bar">
-        <button class="tab-btn active" data-tab="farm">Start Farm</button>
-        <button class="tab-btn" data-tab="topup">Topup</button>
-        <button class="tab-btn" data-tab="profile">Profile</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebar-user">
+        <img id="sidebar-avatar" class="sidebar-user-avatar" src="assets/img_snowman_mt_01.png" alt="" />
+        <div><div class="sidebar-user-name" id="sidebar-username">—</div><div class="sidebar-user-role" id="sidebar-role">user</div></div>
       </div>
+      <button class="btn btn-ghost btn-sm btn-block" id="logout-btn" style="margin-top:8px">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout
+      </button>
+    </div>
+  </aside>
 
-      <div id="tab-farm" class="tab-content active">
-        <div class="dash-layout">
-          <div class="panel">
-            <div class="oven-head">
-              <div class="oven-titles">
-                <img src="assets/crc_cookie_stone_box.png" alt="" width="28" height="28" />
-                <div>
-                  <h2 class="panel-title" style="font-size:1.2rem">Start Farm Run</h2>
-                  <p class="panel-hint">Enter DevPlay account credentials</p>
-                </div>
-              </div>
-              <span class="pill" style="font-size:0.7rem">DevPlay</span>
-            </div>
-            <form id="farm-form" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true">
-              <div class="autofill-trap" aria-hidden="true">
-                <input type="text" name="username" tabindex="-1" autocomplete="username" />
-                <input type="password" name="password" tabindex="-1" autocomplete="current-password" />
-              </div>
-              <div class="grid-2">
-                <label class="field">
-                  <span>DevPlay Email</span>
-                  <input id="dp-acct-mail" name="ckr_dp_acct_mail" type="text" inputmode="email" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="game account email" />
-                </label>
-                <label class="field">
-                  <span>DevPlay Password</span>
-                  <input id="dp-acct-secret" name="ckr_dp_acct_secret" type="password" required autocomplete="new-password" data-lpignore="true" data-1p-ignore="true" placeholder="••••••••" />
-                </label>
-              </div>
-              <div class="stat-grid">
-                <label class="field field-stat">
-                  <span class="field-stat-label">
-                    <span class="field-stat-name"><img src="assets/score.png" alt="" width="14" height="14" /> Score</span>
-                    <span class="field-stat-hint" id="farm-score-hint"></span>
-                  </span>
-                  <input id="farm-score" name="ckr_farm_score" type="text" inputmode="numeric" autocomplete="off" data-farm-num="1" value="0" />
-                </label>
-                <label class="field field-stat">
-                  <span class="field-stat-label">
-                    <span class="field-stat-name"><img src="assets/coin.png" alt="" width="14" height="14" /> Coins</span>
-                    <span class="field-stat-hint" id="farm-coin-hint"></span>
-                  </span>
-                  <input id="farm-coin" name="ckr_farm_coin" type="text" inputmode="numeric" autocomplete="off" data-farm-num="1" value="0" />
-                </label>
-                <label class="field field-stat">
-                  <span class="field-stat-label">
-                    <span class="field-stat-name"><img src="assets/level.png" alt="" width="14" height="14" /> XP</span>
-                    <span class="field-stat-hint" id="farm-exp-hint"></span>
-                  </span>
-                  <input id="farm-exp" name="ckr_farm_exp" type="text" inputmode="numeric" autocomplete="off" data-farm-num="1" value="0" />
-                </label>
-              </div>
-              <div class="xp-tools">
-                <button type="button" class="btn btn-ghost" id="xp-calc-open" style="width:100%;font-size:0.85rem">Calculate XP from Level</button>
-              </div>
-              <div id="xp-calc-card" class="xp-calc-card hidden" hidden>
-                <div class="xp-calc-head">
-                  <h3>XP Calculator</h3>
-                  <button type="button" class="xp-calc-close" id="xp-calc-close">×</button>
-                </div>
-                <p class="xp-calc-lead">Enter current and target level</p>
-                <div class="xp-calc-grid">
-                  <label class="field"><span>Current Lv</span><input id="xp-cur" type="number" min="1" max="110" value="25" /></label>
-                  <label class="field"><span>Target Lv</span><input id="xp-tgt" type="number" min="1" max="110" value="75" /></label>
-                </div>
-                <p class="xp-calc-result" id="xp-calc-result">Need <strong>0</strong> XP</p>
-                <button type="button" class="btn btn-candy" id="xp-calc-apply">Apply to XP Field</button>
-              </div>
-              <button class="btn btn-run" type="submit" id="farm-btn">
-                <img src="assets/tr_event_116.png" alt="" width="22" height="22" />
-                Start Farm · 1 Token
-              </button>
-              <p id="farm-status" class="status" role="status"></p>
-            </form>
-          </div>
-          <div>
-            <div class="panel" style="margin-bottom:16px">
-              <div class="oven-head">
-                <div class="oven-titles">
-                  <img src="assets/tr_ga170.png" alt="" width="28" height="28" />
-                  <div>
-                    <h2 class="panel-title" style="font-size:1.2rem">Farm Queue</h2>
-                    <p class="panel-hint">Live queue status</p>
-                  </div>
-                </div>
-                <span class="pill" id="queue-pill" style="font-size:0.7rem">—</span>
-              </div>
-              <div id="queue-panel" style="font-size:0.85rem;min-height:60px;display:flex;align-items:center;justify-content:center;color:#64748b">Loading...</div>
-            </div>
-          </div>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-stat" id="topbar-queue"><span class="dot green"></span>Queue idle</div>
+        <div class="topbar-stat" id="topbar-server"><span class="dot cyan"></span>Online</div>
+      </div>
+      <div class="topbar-right">
+        <div class="token-chip hidden" id="nav-balance"><img src="assets/coin.png" alt="" /><span id="nav-balance-num">0</span></div>
+        <div class="topbar-profile hidden" id="topbar-profile">
+          <img id="topbar-avatar" src="assets/img_snowman_mt_01.png" alt="" />
+          <span id="topbar-username">—</span>
         </div>
       </div>
+    </header>
 
-      <div id="tab-topup" class="tab-content">
-        <div class="dash-layout">
-          <div class="panel">
-            <div class="oven-head">
-              <div class="oven-titles">
-                <img src="assets/PromptPay.png" alt="" width="28" height="28" />
-                <div>
-                  <h2 class="panel-title" style="font-size:1.2rem">PromptPay</h2>
-                  <p class="panel-hint">Top up with PromptPay</p>
-                </div>
-              </div>
-            </div>
-            <p style="font-size:0.85rem;color:#94a3b8;margin:0 0 12px">Select amount or enter custom</p>
-            <div class="pp-amounts" id="pp-amounts">
-              <button class="pp-amt-btn" data-amt="30">30</button>
-              <button class="pp-amt-btn" data-amt="50">50</button>
-              <button class="pp-amt-btn" data-amt="100">100</button>
-              <button class="pp-amt-btn" data-amt="200">200</button>
-              <button class="pp-amt-btn" data-amt="500">500</button>
-            </div>
-            <label class="field">
-              <span>Custom amount (THB)</span>
-              <input type="number" id="pp-amount" min="15" max="10000" value="100" />
-            </label>
-            <button class="btn btn-run" id="pp-generate-btn" style="width:100%">
-              <img src="assets/notice_b20.png" alt="" width="20" height="20" />
-              Generate QR Code
+    <main class="shell">
+      <section id="login-view" class="view">
+        <div class="admin-hero">
+          <img src="assets/znight.png" width="110" height="110" alt="" style="margin:0 auto 16px;filter:drop-shadow(0 0 24px rgba(14,165,233,0.4))" />
+          <h1>hotdog.</h1><p>Cookie Run Farm Dashboard</p>
+          <p style="color:var(--text-muted);font-size:.82rem;margin-top:6px">1 token per run</p>
+        </div>
+        <div style="max-width:400px;margin:0 auto">
+          <div class="glass-card" style="text-align:center">
+            <h2 class="card-title" style="justify-content:center;margin-bottom:6px">Sign In</h2>
+            <p class="card-subtitle" style="margin-bottom:18px">Sign in with Discord</p>
+            <button class="btn btn-primary btn-block" id="discord-login-btn">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+              Sign in with Discord
             </button>
-            <div id="pp-qr-area" class="pp-qr-area hidden">
-              <div class="pp-qr-box">
-                <img id="pp-qr-img" class="pp-qr-img" src="" alt="PromptPay QR" />
-                <p id="pp-qr-amount" style="font-size:0.9rem;font-weight:600;color:#f1f5f9;margin:4px 0 0"></p>
-                <p id="pp-qr-ref" style="font-size:0.75rem;color:#64748b;margin:2px 0 0"></p>
+            <p id="login-status" class="card-subtitle" style="margin-top:12px;min-height:1.2em"></p>
+          </div>
+        </div>
+      </section>
+
+      <section id="user-view" class="view hidden">
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="farm">Start Farm</button>
+          <button class="tab-btn" data-tab="topup">Topup</button>
+          <button class="tab-btn" data-tab="history">History</button>
+          <button class="tab-btn" data-tab="profile">Profile</button>
+        </div>
+
+        <div id="tab-farm" class="tab-content active">
+          <div class="content-grid">
+            <div class="glass-card">
+              <div class="card-header">
+                <div class="card-title"><img src="assets/crc_cookie_stone_box.png" alt="" />Start Farm Run</div>
+                <span class="status-badge pending" style="font-size:.7rem">DevPlay</span>
               </div>
-              <p id="pp-status" class="status" role="status"></p>
-              <div id="pp-verify-area" class="hidden">
-                <label class="field">
-                  <span>Upload payment slip screenshot</span>
-                  <input type="file" id="pp-slip-file" accept="image/png,image/jpeg,image/jpg" style="color:#94a3b8;font-size:0.85rem" />
-                </label>
-                <button class="btn btn-candy" id="pp-verify-btn" style="width:100%;margin-top:4px">
-                  <img src="assets/boost16_shop.png" alt="" width="18" height="18" />
-                  Verify Slip
+              <p class="card-subtitle" style="margin-bottom:16px">Enter DevPlay account credentials</p>
+              <form id="farm-form" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true">
+                <div class="autofill-trap" aria-hidden="true">
+                  <input type="text" name="username" tabindex="-1" autocomplete="username" />
+                  <input type="password" name="password" tabindex="-1" autocomplete="current-password" />
+                </div>
+                <div class="grid-2">
+                  <label class="field"><span>DevPlay Email</span><input id="dp-acct-mail" type="text" inputmode="email" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="game account email" /></label>
+                  <label class="field"><span>DevPlay Password</span><input id="dp-acct-secret" type="password" required autocomplete="new-password" data-lpignore="true" data-1p-ignore="true" placeholder="password" /></label>
+                </div>
+                <div class="grid-3">
+                  <label class="field" style="padding:8px 10px;background:rgba(0,0,0,0.15);border-radius:var(--radius-sm);border:1px solid var(--glass-border);margin-bottom:8px">
+                    <span style="display:flex;justify-content:space-between;font-size:.78rem"><span><img src="assets/score.png" alt="" width="14" height="14" /> Score</span><span id="farm-score-hint" style="color:var(--primary-light)"></span></span>
+                    <input id="farm-score" type="text" inputmode="numeric" autocomplete="off" data-farm-num="1" value="0" style="background:transparent;border:none;padding:4px 0;min-height:auto" />
+                  </label>
+                  <label class="field" style="padding:8px 10px;background:rgba(0,0,0,0.15);border-radius:var(--radius-sm);border:1px solid var(--glass-border);margin-bottom:8px">
+                    <span style="display:flex;justify-content:space-between;font-size:.78rem"><span><img src="assets/coin.png" alt="" width="14" height="14" /> Coins</span><span id="farm-coin-hint" style="color:var(--primary-light)"></span></span>
+                    <input id="farm-coin" type="text" inputmode="numeric" autocomplete="off" data-farm-num="1" value="0" style="background:transparent;border:none;padding:4px 0;min-height:auto" />
+                  </label>
+                  <label class="field" style="padding:8px 10px;background:rgba(0,0,0,0.15);border-radius:var(--radius-sm);border:1px solid var(--glass-border);margin-bottom:8px">
+                    <span style="display:flex;justify-content:space-between;font-size:.78rem"><span><img src="assets/level.png" alt="" width="14" height="14" /> XP</span><span id="farm-exp-hint" style="color:var(--primary-light)"></span></span>
+                    <input id="farm-exp" type="text" inputmode="numeric" autocomplete="off" data-farm-num="1" value="0" style="background:transparent;border:none;padding:4px 0;min-height:auto" />
+                  </label>
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm btn-block" id="xp-calc-open" style="margin-bottom:12px">Calculate XP from Level</button>
+                <div id="xp-calc-card" class="hidden" style="padding:14px;border-radius:var(--radius-sm);background:rgba(14,165,233,0.05);border:1px solid rgba(14,165,233,0.15);margin-bottom:12px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><strong style="color:var(--text-primary)">XP Calculator</strong><button type="button" id="xp-calc-close" style="background:none;border:none;color:var(--text-muted);font-size:1.2rem;cursor:pointer;padding:0 4px">&times;</button></div>
+                  <p class="card-subtitle" style="margin-bottom:10px">Enter current and target level</p>
+                  <div class="grid-2"><label class="field"><span>Current Lv</span><input id="xp-cur" type="number" min="1" max="110" value="25" /></label><label class="field"><span>Target Lv</span><input id="xp-tgt" type="number" min="1" max="110" value="75" /></label></div>
+                  <p id="xp-calc-result" style="padding:10px;background:rgba(0,0,0,0.2);border-radius:8px;text-align:center;color:var(--text-primary);margin:4px 0 10px;font-size:.85rem">Need <strong style="color:var(--primary-light)">0</strong> XP</p>
+                  <button type="button" class="btn btn-primary btn-sm btn-block" id="xp-calc-apply">Apply to XP Field</button>
+                </div>
+                <button class="btn btn-primary btn-block" type="submit" id="farm-btn" style="margin-top:4px">
+                  <img src="assets/tr_event_116.png" alt="" width="20" height="20" />
+                  Start Farm &middot; 1 Token
                 </button>
+                <p id="farm-status" class="card-subtitle" style="margin-top:8px;min-height:1.2em"></p>
+              </form>
+            </div>
+            <div>
+              <div class="glass-card" style="margin-bottom:16px">
+                <div class="card-header">
+                  <div class="card-title"><img src="assets/tr_ga170.png" alt="" />Farm Queue</div>
+                  <span id="queue-pill" class="status-badge pending" style="font-size:.7rem">Idle</span>
+                </div>
+                <div id="queue-panel" class="card-subtitle" style="min-height:60px;display:flex;align-items:center;justify-content:center">Loading...</div>
               </div>
             </div>
           </div>
-          <div>
-            <div class="panel" style="margin-bottom:16px">
-              <div class="oven-head">
-                <div class="oven-titles">
-                  <img src="assets/truemoney.png" alt="" width="28" height="28" />
-                  <div>
-                    <h2 class="panel-title" style="font-size:1.2rem">Redeem Voucher</h2>
-                    <p class="panel-hint">TrueMoney Wallet</p>
-                  </div>
+        </div>
+
+        <div id="tab-topup" class="tab-content">
+          <div class="content-grid">
+            <div class="glass-card">
+              <div class="card-header">
+                <div class="card-title"><img src="assets/PromptPay.png" alt="" />PromptPay Topup</div>
+              </div>
+              <p class="card-subtitle" style="margin-bottom:12px">Select amount or enter custom</p>
+              <div class="pp-amounts" id="pp-amounts">
+                <button class="pp-amt-btn" data-amt="30">30</button>
+                <button class="pp-amt-btn" data-amt="50">50</button>
+                <button class="pp-amt-btn" data-amt="100">100</button>
+                <button class="pp-amt-btn" data-amt="200">200</button>
+                <button class="pp-amt-btn" data-amt="500">500</button>
+              </div>
+              <label class="field"><span>Custom amount (THB)</span><input type="number" id="pp-amount" min="15" max="10000" value="100" /></label>
+              <button class="btn btn-primary btn-block" id="pp-generate-btn"><img src="assets/notice_b20.png" alt="" width="18" height="18" /> Generate QR Code</button>
+              <div id="pp-qr-area" class="pp-qr-area hidden">
+                <div class="pp-qr-box">
+                  <img id="pp-qr-img" class="pp-qr-img" src="" alt="PromptPay QR" />
+                  <p id="pp-qr-amount" style="font-size:.85rem;font-weight:600;color:var(--text-primary);margin:4px 0 0"></p>
+                  <p id="pp-qr-ref" style="font-size:.72rem;color:var(--text-muted);margin:2px 0 0"></p>
+                </div>
+                <p id="pp-status" class="card-subtitle" style="margin-top:8px;min-height:1.2em"></p>
+                <div id="pp-verify-area" class="hidden">
+                  <label class="field"><span>Upload payment slip</span><input type="file" id="pp-slip-file" accept="image/png,image/jpeg,image/jpg" style="color:var(--text-secondary);font-size:.82rem" /></label>
+                  <button class="btn btn-soft btn-block" id="pp-verify-btn"><img src="assets/boost16_shop.png" alt="" width="16" height="16" /> Verify Slip</button>
                 </div>
               </div>
-              <div id="voucher-status" class="status"></div>
-              <label class="field">
-                <span>Voucher URL</span>
-                <input type="url" id="voucher-url" placeholder="https://gift.truemoney.com/campaign/?v=..." />
-              </label>
-              <button class="btn btn-candy" id="voucher-btn" style="width:100%">
-                <img src="assets/boost16_shop.png" alt="" width="20" height="20" />
-                Redeem & Add Tokens
-              </button>
             </div>
-            <div class="panel">
-              <div class="oven-head">
-                <div class="oven-titles">
-                  <img src="assets/tr_ga170.png" alt="" width="28" height="28" />
-                  <div>
-                    <h2 class="panel-title" style="font-size:1.2rem">Links</h2>
-                    <p class="panel-hint">Quick resources</p>
-                  </div>
+            <div>
+              <div class="glass-card" style="margin-bottom:16px">
+                <div class="card-header">
+                  <div class="card-title"><img src="assets/truemoney.png" alt="" />Redeem Voucher</div>
                 </div>
+                <div id="voucher-status" class="card-subtitle" style="min-height:1.2em"></div>
+                <label class="field"><span>Voucher URL</span><input type="url" id="voucher-url" placeholder="https://gift.truemoney.com/campaign/?v=..." /></label>
+                <button class="btn btn-soft btn-block" id="voucher-btn"><img src="assets/boost16_shop.png" alt="" width="18" height="18" /> Redeem &amp; Add Tokens</button>
               </div>
-              <a href="https://discord.gg/SabrUQ3PCh" target="_blank" rel="noopener" class="btn btn-discord" style="margin-bottom:8px">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
-                Contact Admin on Discord
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="tab-profile" class="tab-content">
-        <div class="panel" style="max-width:500px;margin:0 auto">
-          <div class="oven-head">
-            <div class="oven-titles">
-              <img src="assets/img_snowman_mt_01.png" alt="" width="28" height="28" />
-              <div>
-                <h2 class="panel-title" style="font-size:1.2rem">Profile</h2>
-                <p class="panel-hint">Your account info</p>
+              <div class="glass-card">
+                <div class="card-header">
+                  <div class="card-title"><img src="assets/icon_giftpoint.png" alt="" />Redeem Code</div>
+                </div>
+                <p class="card-subtitle" style="margin-bottom:10px">Enter a redeem code to get tokens</p>
+                <div id="redeem-status" class="card-subtitle" style="min-height:1.2em"></div>
+                <label class="field"><span>Redeem Code</span><input type="text" id="redeem-code-input" placeholder="Enter code" style="text-transform:uppercase" /></label>
+                <button class="btn btn-primary btn-block" id="redeem-btn"><img src="assets/coin.png" alt="" width="18" height="18" /> Redeem Code</button>
               </div>
             </div>
           </div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0">
-            <img id="profile-avatar" class="topbar-avatar" src="assets/img_snowman_mt_01.png" alt="" width="56" height="56" style="width:56px;height:56px;border-radius:50%;object-fit:cover" />
-          </div>
-          <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
-            <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Username</span><strong id="profile-username">—</strong></div>
-            <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Token Balance</span><strong id="profile-balance">0</strong></div>
-            <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Role</span><strong id="profile-role">normal</strong></div>
-            <div style="display:flex;justify-content:space-between"><span style="color:#64748b">Login</span><strong>Discord</strong></div>
-          </div>
-          <a href="https://discord.gg/SabrUQ3PCh" target="_blank" rel="noopener" class="btn btn-discord" style="margin-bottom:8px;margin-top:8px">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
-            Contact Admin on Discord
-          </a>
         </div>
-      </div>
-    </section>
-  </main>
 
-  <footer class="footer">
-    <img src="assets/znight.png" alt="" width="24" height="24" />
-    <p>hotdog. · Dashboard</p>
-  </footer>
-
-  <!-- Run status popup -->
-  <div id="run-status-root" class="run-status-root hidden" aria-hidden="true">
-    <div class="run-status-backdrop"></div>
-    <div class="run-status-sheet" role="dialog" aria-modal="true" aria-labelledby="run-status-title">
-      <div class="run-status-head">
-        <div class="run-status-title-row">
-          <img src="assets/pet81_jelly.png" alt="" width="22" height="22" />
-          <h2 id="run-status-title">Farm Status</h2>
+        <div id="tab-history" class="tab-content">
+          <div class="glass-card">
+            <div class="card-header"><div class="card-title"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Transaction History</div></div>
+            <div id="history-status" class="card-subtitle" style="min-height:1.2em;margin-bottom:12px"></div>
+            <div id="history-list" class="history-list"><p style="text-align:center;color:var(--text-muted);padding:20px">No history yet</p></div>
+          </div>
         </div>
-        <button type="button" id="run-status-close" class="run-status-close" aria-label="Close" disabled>×</button>
-      </div>
-      <p id="run-status-subtitle" class="run-status-subtitle">Farming… do not close until complete</p>
-      <ul id="farm-log" class="run-status-list" aria-live="polite"></ul>
-    </div>
-  </div>
 
-  <!-- Modals -->
-  <div id="modal-root" class="modal-root hidden" aria-hidden="true">
-    <div class="modal-backdrop"></div>
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <img id="modal-icon" class="modal-icon" src="assets/tr_event_116.png" alt="" width="56" height="56" />
-      <h2 id="modal-title" class="modal-title">—</h2>
-      <div id="modal-body" class="modal-body">—</div>
-      <div id="modal-actions" class="modal-actions"></div>
-    </div>
+        <div id="tab-profile" class="tab-content">
+          <div class="glass-card" style="max-width:500px;margin:0 auto">
+            <div class="card-header"><div class="card-title"><img src="assets/img_snowman_mt_01.png" alt="" />Profile</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0">
+              <img id="profile-avatar" src="assets/img_snowman_mt_01.png" alt="" width="60" height="60" style="border-radius:50%;object-fit:cover" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(0,0,0,0.1);border-radius:8px"><span style="color:var(--text-muted)">Username</span><strong id="profile-username">—</strong></div>
+              <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(0,0,0,0.1);border-radius:8px"><span style="color:var(--text-muted)">Token Balance</span><strong id="profile-balance" style="color:var(--primary-light)">0</strong></div>
+              <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(0,0,0,0.1);border-radius:8px"><span style="color:var(--text-muted)">Role</span><strong id="profile-role">normal</strong></div>
+              <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(0,0,0,0.1);border-radius:8px"><span style="color:var(--text-muted)">Login</span><strong>Discord</strong></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
+</div>
 
-  <script src="js/config.js"></script>
-  <script src="js/level_xp.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/app.js"></script>
-  <script>
-    document.getElementById('discord-login-btn').addEventListener('click', async () => {
-      const btn = document.getElementById('discord-login-btn');
-      const status = document.getElementById('login-status');
-      btn.disabled = true;
-      status.textContent = 'Redirecting to Discord...';
-      try {
-        const api = window.CKR_CONFIG?.API_BASE || 'https://ckr-wwdc-x0pe.onrender.com';
-        const res = await fetch(api + '/api/auth/discord');
-        const data = await res.json();
-        if (data.ok && data.url) {
-          window.location.href = data.url;
-        } else {
-          status.textContent = 'Discord login not configured on server';
-          btn.disabled = false;
-        }
-      } catch (e) {
-        status.textContent = 'Failed: ' + e.message;
-        btn.disabled = false;
-      }
-    });
-  </script>
+<div class="mobile-toggle" id="mobile-toggle" aria-label="Toggle menu"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+
+<div class="run-status-root hidden" id="run-status-root" aria-hidden="true">
+  <div class="run-status-backdrop"></div>
+  <div class="run-status-sheet" role="dialog" aria-modal="true" aria-labelledby="run-status-title">
+    <div class="run-status-head">
+      <h2 id="run-status-title">Farm Status</h2>
+      <button type="button" id="run-status-close" class="run-status-close" aria-label="Close" disabled>&times;</button>
+    </div>
+    <p id="run-status-subtitle" class="run-status-subtitle">Farming&hellip; do not close until complete</p>
+    <ul id="farm-log" class="run-status-list" aria-live="polite"></ul>
+  </div>
+</div>
+
+<div class="modal-root hidden" id="modal-root" aria-hidden="true">
+  <div class="modal-backdrop"></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <img id="modal-icon" class="modal-icon" src="assets/tr_event_116.png" alt="" width="52" height="52" />
+    <h2 id="modal-title" class="modal-title">—</h2>
+    <div id="modal-body" class="modal-body">—</div>
+    <div id="modal-actions" class="modal-actions"></div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/level_xp.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/app.js"></script>
+<script>
+document.getElementById('discord-login-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('discord-login-btn');
+  const status = document.getElementById('login-status');
+  btn.disabled = true;
+  status.textContent = 'Redirecting to Discord...';
+  try {
+    const api = window.CKR_CONFIG?.API_BASE || 'https://ckr-wwdc-x0pe.onrender.com';
+    const res = await fetch(api + '/api/auth/discord');
+    const data = await res.json();
+    if (data.ok && data.url) { window.location.href = data.url; }
+    else { status.textContent = 'Discord login not configured on server'; btn.disabled = false; }
+  } catch (e) { status.textContent = 'Failed: ' + e.message; btn.disabled = false; }
+});
+</script>
 </body>
 </html>

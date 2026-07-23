@@ -1450,6 +1450,144 @@ class VoucherSettingsBody(BaseModel):
     points_per_baht: int = Field(ge=1, le=1000, default=1)
 
 
+# ---------------------------------------------------------------------------
+# Redeem codes
+# ---------------------------------------------------------------------------
+class CreateRedeemCodeBody(BaseModel):
+    tokens: int = Field(ge=1, le=100000)
+    code: Optional[str] = Field(None, min_length=3, max_length=32)
+
+
+@app.post("/api/admin/redeem-code/create")
+async def admin_create_redeem_code(
+    body: CreateRedeemCodeBody,
+    admin: dict[str, Any] = Depends(require_admin),
+):
+    if not _has_service_role():
+        raise HTTPException(status_code=503, detail="service_role_not_configured")
+
+    if body.code:
+        code = body.code.strip().upper()
+        if len(code) < 3 or len(code) > 32:
+            raise HTTPException(status_code=400, detail="code_3_32_chars")
+        import re
+        if not re.match(r'^[A-Z0-9_-]+$', code):
+            raise HTTPException(status_code=400, detail="code_alphanumeric_only")
+    else:
+        import secrets
+        code = secrets.token_hex(4).upper()
+        # Make it more human-friendly
+        code = code[:4] + '-' + code[4:]
+
+    svc = _service_headers()
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        # Check duplicate
+        dup = await client.get(
+            f"{SUPABASE_URL}/rest/v1/redeem_codes",
+            params={"code": f"eq.{code}", "select": "id", "limit": "1"},
+            headers={**svc, "Accept": "application/json"},
+        )
+        if dup.status_code == 200 and dup.json():
+            raise HTTPException(status_code=409, detail="code_already_exists")
+
+        r = await client.post(
+            f"{SUPABASE_URL}/rest/v1/redeem_codes",
+            headers={**svc, "Prefer": "return=representation"},
+            json={"code": code, "tokens": body.tokens, "created_by": admin["id"]},
+        )
+        if r.status_code not in (200, 201):
+            raise HTTPException(status_code=500, detail=r.text)
+        row = r.json()[0]
+
+    return {"ok": True, "id": row["id"], "code": code, "tokens": body.tokens}
+
+
+@app.get("/api/admin/redeem-codes")
+async def admin_list_redeem_codes(
+    admin: dict[str, Any] = Depends(require_admin),
+    limit: int = 50,
+):
+    if not _has_service_role():
+        raise HTTPException(status_code=503, detail="service_role_not_configured")
+    svc = _service_headers()
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        r = await client.get(
+            f"{SUPABASE_URL}/rest/v1/redeem_codes",
+            params={"select": "*", "order": "created_at.desc", "limit": str(limit)},
+            headers={**svc, "Accept": "application/json"},
+        )
+        rows = r.json() if r.status_code == 200 else []
+    return {"ok": True, "codes": rows}
+
+
+@app.post("/api/farm/redeem/redeem-code")
+async def farm_redeem_code(
+    body: dict[str, str],
+    user: dict[str, Any] = Depends(verify_user),
+):
+    code = (body.get("code") or "").strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="code_required")
+    token = user["_access_token"]
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        r = await client.post(
+            f"{SUPABASE_URL}/rest/v1/rpc/redeem_code",
+            headers=_sb_headers(SUPABASE_ANON_KEY, token),
+            json={"p_code": code},
+        )
+        if r.status_code != 200:
+            detail = r.json().get("reason", "redeem_failed") if r.content else "redeem_failed"
+            raise HTTPException(status_code=400, detail=detail)
+        data = r.json()
+        if not data.get("ok"):
+            raise HTTPException(status_code=400, detail=data.get("reason", "redeem_failed"))
+    return {"ok": True, "tokens": data["tokens"], "token_balance": data["token_balance"]}
+
+
+# ---------------------------------------------------------------------------
+# Transaction history
+# ---------------------------------------------------------------------------
+@app.get("/api/me/history")
+async def me_history(
+    user: dict[str, Any] = Depends(verify_user),
+    limit: int = 50,
+):
+    uid = user["id"]
+    token = user["_access_token"]
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        # Token ledger
+        ledger_r = await client.get(
+            f"{SUPABASE_URL}/rest/v1/token_ledger",
+            params={"user_id": f"eq.{uid}", "select": "*", "order": "created_at.desc", "limit": str(limit)},
+            headers={**_sb_headers(SUPABASE_ANON_KEY, token), "Accept": "application/json"},
+        )
+        ledger = ledger_r.json() if ledger_r.status_code == 200 else []
+
+        # Pending payments
+        pay_r = await client.get(
+            f"{SUPABASE_URL}/rest/v1/pending_payments",
+            params={"user_id": f"eq.{uid}", "select": "*", "order": "created_at.desc", "limit": "20"},
+            headers={**_sb_headers(SUPABASE_ANON_KEY, token), "Accept": "application/json"},
+        )
+        payments = pay_r.json() if pay_r.status_code == 200 else []
+
+        # Farm runs
+        runs_r = await client.get(
+            f"{SUPABASE_URL}/rest/v1/run_jobs",
+            params={"user_id": f"eq.{uid}", "select": "*", "order": "created_at.desc", "limit": "20"},
+            headers={**_sb_headers(SUPABASE_ANON_KEY, token), "Accept": "application/json"},
+        )
+        runs = runs_r.json() if runs_r.status_code == 200 else []
+
+    return {
+        "ok": True,
+        "ledger": ledger,
+        "payments": payments,
+        "runs": runs,
+    }
+
+
 @app.get("/api/admin/voucher-settings")
 async def get_voucher_settings(
     user: dict[str, Any] = Depends(require_admin),

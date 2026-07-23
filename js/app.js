@@ -789,7 +789,7 @@
     userView.classList.remove("hidden");
     $("logout-btn").classList.remove("hidden");
     $("nav-balance").classList.remove("hidden");
-    $("topbar-stats").classList.remove("hidden");
+    // topbar stats are always visible
     $("topbar-profile").classList.remove("hidden");
     updateFarmAvailability();
     refreshGateAndQueueUi().catch(() => {});
@@ -804,6 +804,7 @@
     userView.classList.add("hidden");
     $("logout-btn").classList.add("hidden");
     $("nav-balance").classList.add("hidden");
+    $("topbar-profile").classList.add("hidden");
   }
 
   function paintProfile() {
@@ -814,8 +815,11 @@
     $("profile-balance").textContent = String(bal);
     $("profile-role").textContent = profile?.role || "normal";
     $("topbar-username").textContent = name;
+    $("sidebar-username").textContent = name;
+    $("sidebar-role").textContent = profile?.role || "user";
     if (profile?.avatar_url) {
       $("topbar-avatar").src = profile.avatar_url;
+      $("sidebar-avatar").src = profile.avatar_url;
       const pa = $("profile-avatar");
       if (pa) pa.src = profile.avatar_url;
     }
@@ -1305,14 +1309,18 @@
     showLogin();
   }
 
-  /* ---------- Tab switching ---------- */
-  document.querySelectorAll(".tab-btn").forEach((btn) => {
+  /* ---------- Tab switching (sidebar + topbar) ---------- */
+  document.querySelectorAll(".nav-link[data-tab], .tab-btn[data-tab]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-      document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+      const container = btn.closest(".sidebar-nav, .tab-bar");
+      if (container) container.querySelectorAll(".active").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
-      const tab = document.getElementById("tab-" + btn.dataset.tab);
+      const tabId = btn.dataset.tab;
+      if (!tabId) return;
+      document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+      const tab = document.getElementById("tab-" + tabId);
       if (tab) tab.classList.add("active");
+      if (tabId === "history") refreshHistory();
     });
   });
 
@@ -1382,6 +1390,86 @@
     ?.addEventListener("click", () => {
       if (runStatusClosable) closeRunStatusPopup();
     });
+
+  // Mobile sidebar toggle
+  const mobileToggle = document.getElementById("mobile-toggle");
+  if (mobileToggle) {
+    mobileToggle.addEventListener("click", () => {
+      document.getElementById("sidebar").classList.toggle("open");
+    });
+    document.addEventListener("click", (e) => {
+      if (window.innerWidth > 768) return;
+      const s = document.getElementById("sidebar");
+      if (!s.classList.contains("open")) return;
+      if (!s.contains(e.target) && !mobileToggle.contains(e.target)) {
+        s.classList.remove("open");
+      }
+    });
+  }
+
+  // Redeem code
+  const redeemBtn = document.getElementById("redeem-btn");
+  const redeemInput = document.getElementById("redeem-code-input");
+  const redeemStatus = document.getElementById("redeem-status");
+  if (redeemBtn) {
+    redeemBtn.addEventListener("click", async () => {
+      const code = (redeemInput.value || "").trim().toUpperCase();
+      if (!code) { setStatus(redeemStatus, "Enter a redeem code", "err"); return; }
+      redeemBtn.disabled = true;
+      setStatus(redeemStatus, "Redeeming...", "load");
+      try {
+        const data = await api("/api/farm/redeem/redeem-code", { method: "POST", body: { code } });
+        setStatus(redeemStatus, "Redeemed! +" + data.tokens + " Tokens", "ok");
+        redeemInput.value = "";
+        if (typeof data.token_balance === "number") {
+          profile.token_balance = data.token_balance;
+          paintProfile();
+        }
+      } catch (e) {
+        setStatus(redeemStatus, e.message, "err");
+      }
+      redeemBtn.disabled = false;
+    });
+  }
+
+  // History
+  async function refreshHistory() {
+    const list = document.getElementById("history-list");
+    const st = document.getElementById("history-status");
+    if (!list) return;
+    st.textContent = "Loading...";
+    try {
+      const data = await api("/api/me/history");
+      let html = "";
+      const items = [];
+      if (data.ledger) data.ledger.forEach(function(l) { items.push({ type: "ledger", delta: l.delta, reason: l.reason || "", time: l.created_at }); });
+      if (data.payments) data.payments.forEach(function(p) { items.push({ type: "payment", status: p.status, amount: p.amount_baht, tokens: p.tokens, time: p.created_at }); });
+      if (data.runs) data.runs.forEach(function(r) { items.push({ type: "run", status: r.status, time: r.created_at }); });
+      items.sort(function(a, b) { return (b.time || "").localeCompare(a.time || ""); });
+      if (items.length === 0) {
+        list.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:30px">No history yet</p>';
+        st.textContent = "";
+        return;
+      }
+      items.slice(0, 50).forEach(function(item) {
+        var time = item.time ? new Date(item.time).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+        if (item.type === "ledger") {
+          var isCredit = item.delta > 0;
+          html += '<div class="history-item"><div class="history-icon ' + (isCredit ? "credit" : "debit") + '"><img src="' + (isCredit ? "assets/coin.png" : "assets/tr_event_116.png") + '" alt="" /></div><div class="history-info"><div class="history-reason">' + (item.reason || "Token " + (isCredit ? "credit" : "debit")) + '</div><div class="history-time">' + time + '</div></div><div class="history-amount ' + (isCredit ? "pos" : "neg") + '">' + (isCredit ? "+" : "") + item.delta + '</div></div>';
+        } else if (item.type === "payment") {
+          html += '<div class="history-item"><div class="history-icon credit"><img src="assets/PromptPay.png" alt="" /></div><div class="history-info"><div class="history-reason">PromptPay ' + item.amount + ' THB</div><div class="history-time">' + time + '</div></div><div class="history-amount pos">+' + item.tokens + '</div></div>';
+        } else if (item.type === "run") {
+          var badge = item.status === "succeeded" ? "completed" : item.status === "failed" ? "failed" : "pending";
+          html += '<div class="history-item"><div class="history-icon ' + (item.status === "succeeded" ? "credit" : "debit") + '"><img src="assets/tr_event_116.png" alt="" /></div><div class="history-info"><div class="history-reason">Farm Run</div><div class="history-time">' + time + '</div></div><div class="status-badge ' + badge + '">' + (item.status || "") + '</div></div>';
+        }
+      });
+      list.innerHTML = html;
+      st.textContent = items.length + " entries";
+    } catch (e) {
+      list.innerHTML = '<p style="text-align:center;color:var(--danger);padding:20px">Failed to load: ' + e.message + "</p>";
+      st.textContent = "Error";
+    }
+  }
 
   document.addEventListener("keydown", (ev) => {
     if (ev.key !== "Escape") return;

@@ -467,3 +467,87 @@ create policy "pending_payments_insert_own"
 revoke insert, update, delete on public.pending_payments from anon;
 grant select on public.pending_payments to authenticated;
 grant insert on public.pending_payments to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Redeem codes (admin generates, users redeem)
+-- ---------------------------------------------------------------------------
+create table if not exists public.redeem_codes (
+  id uuid primary key default gen_random_uuid(),
+  code text not null,
+  tokens integer not null check (tokens > 0),
+  used_by uuid null references public.profiles (id) on delete set null,
+  used_at timestamptz null,
+  created_by uuid null references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists redeem_codes_code_uidx
+  on public.redeem_codes (lower(code));
+
+alter table public.redeem_codes enable row level security;
+
+drop policy if exists "redeem_codes_select_admin" on public.redeem_codes;
+create policy "redeem_codes_select_admin"
+  on public.redeem_codes for select to authenticated
+  using (public.is_admin());
+
+drop policy if exists "redeem_codes_insert_admin" on public.redeem_codes;
+create policy "redeem_codes_insert_admin"
+  on public.redeem_codes for insert to authenticated
+  with check (public.is_admin());
+
+drop policy if exists "redeem_codes_update_admin" on public.redeem_codes;
+create policy "redeem_codes_update_admin"
+  on public.redeem_codes for update to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+revoke insert, update, delete on public.redeem_codes from anon, authenticated;
+grant select on public.redeem_codes to authenticated;
+
+-- Redeem code function (for users)
+create or replace function public.redeem_code(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  rec public.redeem_codes%rowtype;
+  bal integer;
+begin
+  if uid is null then
+    return jsonb_build_object('ok', false, 'reason', 'not_authenticated');
+  end if;
+
+  select * into rec from public.redeem_codes
+  where lower(code) = lower(trim(p_code))
+  for update;
+
+  if not found then
+    return jsonb_build_object('ok', false, 'reason', 'code_not_found');
+  end if;
+
+  if rec.used_by is not null then
+    return jsonb_build_object('ok', false, 'reason', 'code_already_used');
+  end if;
+
+  update public.redeem_codes
+  set used_by = uid, used_at = now()
+  where id = rec.id;
+
+  update public.profiles
+  set token_balance = token_balance + rec.tokens
+  where id = uid
+  returning token_balance into bal;
+
+  insert into public.token_ledger (user_id, delta, reason, balance_after, created_by)
+  values (uid, rec.tokens, 'redeem_code', bal, uid);
+
+  return jsonb_build_object('ok', true, 'tokens', rec.tokens, 'token_balance', bal);
+end;
+$$;
+
+revoke all on function public.redeem_code(text) from public;
+grant execute on function public.redeem_code(text) to authenticated;
+grant execute on function public.redeem_code(text) to service_role;
