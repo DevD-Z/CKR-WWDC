@@ -829,6 +829,20 @@ async def farm_payment_create(
     body: CreatePaymentBody,
     user: dict[str, Any] = Depends(verify_user),
 ):
+    try:
+        return await _do_farm_payment_create(body, user)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[promptpay] unhandled create error: {type(e).__name__} {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาด: {type(e).__name__}")
+
+
+async def _do_farm_payment_create(
+    body: CreatePaymentBody,
+    user: dict[str, Any],
+):
     uid = user["id"]
     ts = int(time.time())
     ref = f"PP{uid[:8]}{ts % 1000000}"
@@ -861,7 +875,7 @@ async def farm_payment_create(
         async with httpx.AsyncClient(timeout=20.0) as c:
             ins = await c.post(
                 f"{SUPABASE_URL}/rest/v1/pending_payments",
-                headers={**svc, "Prefer": "return=representation"},
+                headers=svc,
                 json={
                     "user_id": uid,
                     "amount_baht": body.amount,
@@ -870,9 +884,7 @@ async def farm_payment_create(
                     "status": "pending",
                 },
             )
-            if ins.status_code not in (200, 201):
-                print(f"[promptpay] insert failed: {ins.status_code} {ins.text}")
-                raise HTTPException(status_code=500, detail="สร้างรายการเติมเงินไม่สำเร็จ — ลองอีกครั้ง")
+            print(f"[promptpay] insert status={ins.status_code} text={ins.text[:200]}")
 
     return {
         "ok": True,
