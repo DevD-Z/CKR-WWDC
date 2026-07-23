@@ -10,6 +10,8 @@
   const API = cfg.API_BASE || "";
   let TOKEN = null;
   let _challenge = "";
+  window._tsSetToken = function(t) { _tsToken = t; };
+  let _tsToken = "";
   fetch(API + "/api/challenge")
     .then((r) => r.json())
     .then((d) => { if (d.ok) _challenge = d.challenge; })
@@ -26,7 +28,7 @@
     const headers = { "Content-Type": "application/json" };
     if (TOKEN) headers["Authorization"] = "Bearer " + TOKEN;
     if (_challenge) headers["X-Challenge"] = _challenge;
-
+    if (_tsToken) headers["X-Turnstile"] = _tsToken;
     const res = await fetch(API + path, {
       method,
       headers,
