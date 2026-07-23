@@ -272,7 +272,7 @@
       btn.disabled = true;
       status.textContent = 'Redirecting to Discord...';
       try {
-        const api = window.CKR_CONFIG?.API_BASE || 'https://ckr-wwdc-x0pe.onrender.com';
+        const api = window.CKR_CONFIG?.API_BASE || 'https://hotdog-proxy.toonrog8.workers.dev';
         const res = await fetch(api + '/api/auth/discord');
         const data = await res.json();
         if (data.ok && data.url) {

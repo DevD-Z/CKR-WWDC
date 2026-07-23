@@ -40,7 +40,7 @@ SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
-DISCORD_REDIRECT_URI = os.environ.get("DISCORD_REDIRECT_URI", "https://ckr-wwdc-x0pe.onrender.com/api/auth/discord/callback")
+DISCORD_REDIRECT_URI = os.environ.get("DISCORD_REDIRECT_URI", "https://hotdog-proxy.toonrog8.workers.dev/api/auth/discord/callback")
 
 TURNSTILE_SECRET = "0x4AAAAAAD7oj-LtRhcZz7uKngvFFxhKy34"
 
@@ -55,6 +55,7 @@ MAX_QUEUE_SIZE = int(os.environ.get("MAX_QUEUE_SIZE", "30"))
 ALLOWED_ORIGINS = [
     "https://devd-z.github.io",
     "https://ckr-wwdc-x0pe.onrender.com",
+    "https://hotdog-proxy.toonrog8.workers.dev",
     "http://localhost:5500",
     "http://127.0.0.1:5500",
     "http://localhost:8000",
