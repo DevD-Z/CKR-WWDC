@@ -920,10 +920,11 @@ async def farm_payment_verify(
             SLIPOK_BASE,
             headers=_slipok_headers(),
             files={
-                "file": (file.filename or "slip.png", file_bytes, file.content_type or "image/png"),
+                "files": (file.filename or "slip.png", file_bytes, file.content_type or "image/png"),
             },
             data={
                 "log": "true",
+                "amount": str(amount_baht),
             },
         )
         sl_data = sl_res.json()
