@@ -27,7 +27,7 @@
         <div class="nav-section-title">Main Menu</div>
         <ul style="list-style:none;padding:0;margin:0">
           <li class="nav-item"><button class="nav-link active" data-tab="farm"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12h18M12 3v18"/></svg>Start Farm</button></li>
-          <li class="nav-item"><button class="nav-link" data-tab="topup"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg>Topup</button></li>
+          <!-- <li class="nav-item"><button class="nav-link" data-tab="topup"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg>Topup</button></li> -->
           <li class="nav-item"><button class="nav-link" data-tab="history"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>History</button></li>
           <li class="nav-item"><button class="nav-link" data-tab="profile"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</button></li>
         </ul>
@@ -142,51 +142,12 @@
 
         <div id="tab-topup" class="tab-content">
           <div class="content-grid">
-            <div class="glass-card">
-              <div class="card-header">
-                <div class="card-title"><img src="assets/PromptPay.png" alt="" />PromptPay Topup</div>
+            <div class="glass-card" style="text-align:center;padding:40px 20px">
+              <div class="card-title" style="justify-content:center;margin-bottom:16px">
+                <svg width="32" height="32" fill="none" stroke="var(--text-muted)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               </div>
-              <p class="card-subtitle" style="margin-bottom:12px">Select amount or enter custom</p>
-              <div class="pp-amounts" id="pp-amounts">
-                <button class="pp-amt-btn" data-amt="30">30</button>
-                <button class="pp-amt-btn" data-amt="50">50</button>
-                <button class="pp-amt-btn" data-amt="100">100</button>
-                <button class="pp-amt-btn" data-amt="200">200</button>
-                <button class="pp-amt-btn" data-amt="500">500</button>
-              </div>
-              <label class="field"><span>Custom amount (THB)</span><input type="number" id="pp-amount" min="15" max="10000" value="100" /></label>
-              <button class="btn btn-primary btn-block" id="pp-generate-btn"><img src="assets/notice_b20.png" alt="" width="18" height="18" /> Generate QR Code</button>
-              <div id="pp-qr-area" class="pp-qr-area hidden">
-                <div class="pp-qr-box">
-                  <img id="pp-qr-img" class="pp-qr-img" src="" alt="PromptPay QR" />
-                  <p id="pp-qr-amount" style="font-size:.85rem;font-weight:600;color:var(--text-primary);margin:4px 0 0"></p>
-                  <p id="pp-qr-ref" style="font-size:.72rem;color:var(--text-muted);margin:2px 0 0"></p>
-                </div>
-                <p id="pp-status" class="card-subtitle" style="margin-top:8px;min-height:1.2em"></p>
-                <div id="pp-verify-area" class="hidden">
-                  <label class="field"><span>Upload payment slip</span><input type="file" id="pp-slip-file" accept="image/png,image/jpeg,image/jpg" style="color:var(--text-secondary);font-size:.82rem" /></label>
-                  <button class="btn btn-soft btn-block" id="pp-verify-btn"><img src="assets/boost16_shop.png" alt="" width="16" height="16" /> Verify Slip</button>
-                </div>
-              </div>
-            </div>
-            <div>
-              <div class="glass-card" style="margin-bottom:16px">
-                <div class="card-header">
-                  <div class="card-title"><img src="assets/truemoney.png" alt="" />Redeem Voucher</div>
-                </div>
-                <div id="voucher-status" class="card-subtitle" style="min-height:1.2em"></div>
-                <label class="field"><span>Voucher URL</span><input type="url" id="voucher-url" placeholder="https://gift.truemoney.com/campaign/?v=..." /></label>
-                <button class="btn btn-soft btn-block" id="voucher-btn"><img src="assets/boost16_shop.png" alt="" width="18" height="18" /> Redeem &amp; Add Tokens</button>
-              </div>
-              <div class="glass-card">
-                <div class="card-header">
-                  <div class="card-title"><img src="assets/icon_giftpoint.png" alt="" />Redeem Code</div>
-                </div>
-                <p class="card-subtitle" style="margin-bottom:10px">Enter a redeem code to get tokens</p>
-                <div id="redeem-status" class="card-subtitle" style="min-height:1.2em"></div>
-                <label class="field"><span>Redeem Code</span><input type="text" id="redeem-code-input" placeholder="Enter code" style="text-transform:uppercase" /></label>
-                <button class="btn btn-primary btn-block" id="redeem-btn"><img src="assets/coin.png" alt="" width="18" height="18" /> Redeem Code</button>
-              </div>
+              <p style="color:var(--text-muted);font-size:1rem">ระบบเติมเงินปิดปรับปรุงชั่วคราว</p>
+              <p style="color:var(--text-muted);font-size:.82rem;margin-top:8px">Top-up system is temporarily closed for maintenance.</p>
             </div>
           </div>
         </div>

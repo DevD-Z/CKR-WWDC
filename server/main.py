@@ -892,69 +892,7 @@ async def farm_redeem_voucher(
     body: RedeemVoucherBody,
     user: dict[str, Any] = Depends(verify_user),
 ):
-    import re as _re
-
-    url = body.voucher_url.strip()
-    phone = body.phone.strip()
-    uid = user["id"]
-
-    match = _re.match(r"https://gift\.truemoney\.com/campaign/\?v=([a-zA-Z0-9]{18,})", url)
-    if not match:
-        raise HTTPException(status_code=400, detail="ลิงก์ซองไม่ถูกต้อง")
-
-    voucher_hash = match.group(1)
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        try:
-            resp = await client.get(f"https://api.xpluem.com/{voucher_hash}/{phone}")
-            data = resp.json()
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=f"เรียก API TrueMoney ไม่สำเร็จ: {e}")
-
-    if not data.get("success"):
-        msg = data.get("message", "ไม่ทราบสาเหตุ")
-        raise HTTPException(status_code=400, detail=f"ซองไม่สำเร็จ: {msg}")
-
-    try:
-        amount_baht = int(float(data.get("data", {}).get("amount", "0")))
-    except (ValueError, TypeError):
-        amount_baht = 0
-
-    if not _has_service_role():
-        raise HTTPException(status_code=503, detail="service_role_not_configured")
-
-    svc = _service_headers()
-    points_per_baht = 1
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        ar = await client.get(
-            f"{SUPABASE_URL}/rest/v1/profiles",
-            params={"role": "eq.admin", "select": "points_per_baht", "limit": "1"},
-            headers={**svc, "Accept": "application/json"},
-        )
-        if ar.status_code == 200 and ar.json():
-            admin_row = ar.json()[0]
-            points_per_baht = int(admin_row.get("points_per_baht", 1))
-
-    tokens = amount_baht * points_per_baht
-    if tokens <= 0:
-        raise HTTPException(status_code=400, detail="ยอดเงินไม่ถูกต้อง")
-
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        credit = await client.post(
-            f"{SUPABASE_URL}/rest/v1/rpc/admin_credit_tokens",
-            headers=_service_headers(),
-            json={"p_user_id": uid, "p_amount": tokens, "p_reason": "voucher_redeem"},
-        )
-        if credit.status_code != 200:
-            raise HTTPException(status_code=500, detail=credit.text)
-        credit_data = credit.json()
-
-    return {
-        "ok": True,
-        "token_balance": credit_data.get("token_balance"),
-        "amount_baht": amount_baht,
-        "tokens_added": tokens,
-    }
+    raise HTTPException(status_code=503, detail="ระบบเติมเงินปิดปรับปรุงชั่วคราว")
 
 
 # ---------------------------------------------------------------------------
@@ -1010,14 +948,7 @@ async def farm_payment_create(
     body: CreatePaymentBody,
     user: dict[str, Any] = Depends(verify_user),
 ):
-    try:
-        return await _do_farm_payment_create(body, user)
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"[promptpay] unhandled create error: {type(e).__name__} {e}")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาด: {type(e).__name__}")
+    raise HTTPException(status_code=503, detail="ระบบเติมเงินปิดปรับปรุงชั่วคราว")
 
 
 async def _do_farm_payment_create(
@@ -1086,9 +1017,7 @@ async def farm_payment_verify(
     amount_baht: int = Form(0),
     user: dict[str, Any] = Depends(verify_user),
 ):
-    """Verify a payment slip via SlipOK (multipart with file)."""
-    if not _has_service_role():
-        raise HTTPException(status_code=503, detail="service_role_not_configured")
+    raise HTTPException(status_code=503, detail="ระบบเติมเงินปิดปรับปรุงชั่วคราว")
 
     svc = _service_headers()
     file_bytes = await file.read()
@@ -1210,8 +1139,7 @@ async def farm_payment_status(
     ref: str,
     user: dict[str, Any] = Depends(verify_user),
 ):
-    if not _has_service_role():
-        return {"ok": True, "ref": ref, "status": "unknown", "note": "service_role_not_configured"}
+    raise HTTPException(status_code=503, detail="ระบบเติมเงินปิดปรับปรุงชั่วคราว")
     svc = _service_headers()
     async with httpx.AsyncClient(timeout=20.0) as client:
         q = await client.get(
@@ -1296,41 +1224,7 @@ async def admin_add_tokens(
     body: AdminAddTokensBody,
     admin: dict[str, Any] = Depends(require_admin),
 ):
-    headers = (
-        _service_headers()
-        if _has_service_role()
-        else _sb_headers(SUPABASE_ANON_KEY, admin["_access_token"])
-    )
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        looked = await client.post(
-            f"{SUPABASE_URL}/rest/v1/rpc/admin_lookup_user",
-            headers=headers,
-            json={"p_query": body.query},
-        )
-        data = looked.json() if looked.status_code == 200 else {}
-        if not data.get("ok"):
-            raise HTTPException(status_code=404, detail=data.get("reason", "not_found"))
-
-        credit = await client.post(
-            f"{SUPABASE_URL}/rest/v1/rpc/admin_credit_tokens",
-            headers=headers,
-            json={
-                "p_user_id": data["id"],
-                "p_amount": body.amount,
-                "p_reason": body.reason,
-            },
-        )
-    if credit.status_code != 200:
-        raise HTTPException(status_code=500, detail=credit.text)
-    out = credit.json()
-    if not out.get("ok"):
-        raise HTTPException(status_code=400, detail=out.get("reason", "credit_failed"))
-    return {
-        "ok": True,
-        "id": out.get("id"),
-        "username": data.get("username"),
-        "token_balance": out.get("token_balance"),
-    }
+    raise HTTPException(status_code=503, detail="ระบบเติมเงินปิดปรับปรุงชั่วคราว")
 
 
 @app.post("/api/admin/create-user")
@@ -1780,23 +1674,7 @@ async def farm_redeem_code(
     _turnstile: None = Depends(verify_turnstile),
     user: dict[str, Any] = Depends(verify_user),
 ):
-    code = (body.get("code") or "").strip()
-    if not code:
-        raise HTTPException(status_code=400, detail="code_required")
-    token = user["_access_token"]
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        r = await client.post(
-            f"{SUPABASE_URL}/rest/v1/rpc/redeem_code",
-            headers=_sb_headers(SUPABASE_ANON_KEY, token),
-            json={"p_code": code},
-        )
-        if r.status_code != 200:
-            detail = r.json().get("reason", "redeem_failed") if r.content else "redeem_failed"
-            raise HTTPException(status_code=400, detail=detail)
-        data = r.json()
-        if not data.get("ok"):
-            raise HTTPException(status_code=400, detail=data.get("reason", "redeem_failed"))
-    return {"ok": True, "tokens": data["tokens"], "token_balance": data["token_balance"]}
+    raise HTTPException(status_code=503, detail="ระบบเติมเงินปิดปรับปรุงชั่วคราว")
 
 
 # ---------------------------------------------------------------------------
